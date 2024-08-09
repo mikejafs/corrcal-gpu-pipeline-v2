@@ -1,0 +1,170 @@
+"""Add working routines from mat inverse v8 and create class around them"""
+
+
+
+#add the full working routines here and create a class, then,
+#create another file that imports the class and uses them to perform the validation tests and timing tests
+
+
+#For benchmarking, should probably create a class that uses the benchmark code or maybe just a function for now
+#that is in its own folder called tests or something. The file name can be something like benchmark.py... We can expand
+#upon this later...
+
+
+"""
+Module containing the routines required to perform the inverse covariance calculation.
+"""
+
+import numpy as np
+import cupy as cp
+import seaborn as sns
+import matplotlib.pyplot as plt
+import corrcal
+from cupyx.profiler import benchmark
+
+
+def zeropad(array, edges, xp):
+    """
+    Pads an input noise, diffuse, or source matrix with zeros according to
+    the largest redundant block in the diffuse matrix. Note that although the input arrays
+    will have a 1D or 2D shape for noise or diff/sourc matrices respectively, the routine converts 
+    to either 2D or 3D shapes so we can easily perform block mutliplication in the inverse covariance
+    function.
+
+    Parameters
+    ----------
+    array: Input noise, diffuse, or source matrix. Should be of shape (n_bl,), (n_bl, n_eig), or (n_bl, n_src) respectively
+    edges: Array containing indices corresponding to the edges of redundant blocks in the diffuse matrix
+            Note that the "edges" index the beginning row (or "edge") of each redundant block
+    
+    Returns
+    -------
+    out: The output zero-padded noise, diffuse, or source matrix where each matrix has also been reshaped 
+        to be easily used in the inverse covariance function that performs mutliplication over blocks. The 
+        output matrices have shapes of either (n_blocks, largest_red_block), (n_blocks, largest_red_block, n_eig), 
+        or (n_blocks, largest_red_block, n_src) respectively.
+    """
+
+    largest_block = xp.diff(edges).max()
+    n_blocks = edges.size - 1
+
+    if array.ndim == 1:   #should only be the case for the noise matrix
+        out = xp.zeros((n_blocks, int(largest_block)))
+    else:
+        out  = xp.zeros((n_blocks, int(largest_block), int(array.shape[1])))
+
+    for block, (start, stop) in enumerate(zip(edges, edges[1:])):
+        start, stop = int(start), int(stop)
+        out[block, :stop - start] = array[start:stop]
+    
+    return out
+
+
+def undo_zeropad(array, edges, xp):
+    """
+    Undoes (essentially does the exact opposite of) the work of the zeropad function.
+    
+    Parameters
+    ----------
+    array: Input noise, diffuse, or source matrix. Should be of shape (n_bl,), (n_bl, n_eig), or (n_bl, n_src) respectively
+    edges: Array containing indices corresponding to the edges of redundant blocks in the diffuse matrix.
+            Note that the "edges" index the beginning row (or "edge") of each redundant block
+
+    Returns
+    -------
+    out: A dense, unzero-padded array. If an array is given to the zeropad function, this routine will return that original array
+        provided the edges array is the same as the one used to pad the original array with zeros.
+    """
+
+    if array.ndim == 2:   #once again only the case for the noise matrix
+        out = xp.zeros((int(edges[-1])))
+    else:
+        out = xp.zeros((int(edges[-1]), int(array.shape[2])))
+
+    for block, (start, stop) in enumerate(zip(edges, edges[1:])):
+        start, stop = int(start), int(stop)
+        out[start:stop] = array[block, :stop - start]
+
+    return out
+
+
+def inverse_covariance(N, Del, Sig, edges, xp):
+    """
+    Given the components of the 2-level sparse covariance object, computes the components of the inverse covariance object. Currectly does not 
+    support the option to return the determinant of the covariance.
+
+    TODO: Add option to return the determinant
+
+    Parameters
+    ----------
+    N: Noise 
+    Del: \Delta (diffuse) sky component matrix with shape n_bl x n_eig
+    Sig: \Sigma Source component matrix with shape n_bl x n_src
+    edges: Array controlling the start and stop of the redundant blocks in the sparse diffuse matrix
+    xp: Choice of running on the gpu (xp = cp) or cpu (xp = np)
+
+    Returns
+    -------
+    N^-1: Inverse noise matrix
+    Del': The primed version of the diffuse sky matrix
+    Sig': The primed version of the source component matrix
+    """
+    
+    Del = zeropad(Del, edges, xp = xp)
+    Sig = zeropad(Sig, edges, xp = xp)
+    N_inv = 1/N     
+    N_inv = zeropad(N_inv, edges, xp = xp)
+
+    temp = N_inv[..., None] * Del    
+    temp2 = xp.transpose(Del, [0, 2, 1]) @ temp
+    L_del = xp.linalg.cholesky(xp.eye(Del.shape[2])[None, ...] + temp2)   
+    Del_prime = temp @ xp.transpose(xp.linalg.inv(L_del).conj(), [0, 2, 1]) 
+          
+    A = N_inv[..., None] * Sig
+    B = xp.transpose(Sig.conj(), [0, 2, 1]) @ Del_prime
+    W = A - Del_prime @ xp.transpose(B.conj(), [0, 2, 1])
+    L_sig = xp.linalg.cholesky(
+        xp.eye(Sig.shape[2]) + xp.sum(xp.transpose(A.conj(), [0, 2, 1]) @ Sig, axis = 0) - xp.sum(B @ xp.transpose(B.conj(), [0, 2, 1]), axis = 0)
+    )
+    Sig_prime = W @ xp.linalg.inv(L_sig).T.conj()[None, ...]
+
+    N_inv = undo_zeropad(N_inv, edges, xp = xp)
+    Del_prime = undo_zeropad(Del_prime, edges, xp = xp)
+    Sig_prime = undo_zeropad(Sig_prime, edges, xp = xp)   
+
+    return N_inv, Del_prime, Sig_prime
+
+
+def sparden_convert(Array, n_bl, n_eig, edges, xp = cp):
+    """
+    Converts either the dense diffuse matrix to sparse, or the sparse diffuse matrix to dense. The array (either dense or sparse)
+    should be simply handed to the function and the desired operation (sparse-to-dense or dense-to-sparse) will be performed automatically
+
+    Parameters
+    ----------
+    Array: Either dense or sparse diffuse matrix
+    n_bls: Number of baselines used in the calculation of the sparse diffuse matrix
+    n_eig: Number of eigenmodes being used to construct the sparse diffuse matrix
+    edges: An array controlling the edges of the redundant group blocks in the sparse diffuse matrix
+    xp: The choice to either run the computation on the gpu (xp = cp) or cpu (xp = np)
+
+    Returns
+    -------
+    out: If the dense form was provided, the sparse form with shape (n_bls x n_eig) will be returned. If the sparse form was provided, the dense
+        form with shape (n_bls x n_eig*n_grps) with n_grps = # redundant groups will be returned.
+    """
+    
+    if Array.shape[1] == n_eig:
+        n_grp = edges.size - 1
+        out = xp.zeros((n_bl, n_eig*n_grp))
+        for i, (start, stop) in enumerate(zip(edges, edges[1:])):
+            out[start:stop, i*n_eig : (i+1)*n_eig] = Array[start:stop]
+    else:
+        out = xp.zeros((n_bl, n_eig))
+        for i, (start, stop) in enumerate(zip(edges, edges[1:])):
+            out[start:stop] = Array[start:stop, i*n_eig : (i+1)*n_eig]
+
+    return out
+
+
+

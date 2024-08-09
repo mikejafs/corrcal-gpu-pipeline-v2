@@ -1,0 +1,4 @@
+~good copy-ish rough work and notebooks can go here
+
+This folder contains rough notebooks that act as sets of notes with more or less full explainations of underlying 
+math behind main routines, along with simulations & validation tests. 
