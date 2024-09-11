@@ -2,3 +2,7 @@
 
 This folder contains rough notebooks that act as sets of notes with more or less full explainations of underlying 
 math behind main routines, along with simulations & validation tests. 
+
+Note that especially so, this folder is more designed for work that has already been through a significant amount of 
+debugging and testing in another more-or-less designated folder; this folder is more like a 'good copy' place for rough
+work, if that even makes sense....

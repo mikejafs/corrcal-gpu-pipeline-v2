@@ -88,7 +88,7 @@ def undo_zeropad(array, edges, xp):
     return out
 
 
-def inverse_covariance(N, Del, Sig, edges, xp):
+def inverse_covariance(N, Del, Sig, edges, xp, ret_det = False):
     """
     Given the components of the 2-level sparse covariance object, computes the components of the inverse covariance object. Currectly does not 
     support the option to return the determinant of the covariance.
@@ -102,6 +102,7 @@ def inverse_covariance(N, Del, Sig, edges, xp):
     Sig: \Sigma Source component matrix with shape n_bl x n_src
     edges: Array controlling the start and stop of the redundant blocks in the sparse diffuse matrix
     xp: Choice of running on the gpu (xp = cp) or cpu (xp = np)
+    ret_det: Option to return the log(det(C)) along with the inverse covariance. Defaults to False
 
     Returns
     -------
@@ -109,7 +110,7 @@ def inverse_covariance(N, Del, Sig, edges, xp):
     Del': The primed version of the diffuse sky matrix
     Sig': The primed version of the source component matrix
     """
-    
+
     Del = zeropad(Del, edges, xp = xp)
     Sig = zeropad(Sig, edges, xp = xp)
     N_inv = 1/N     
@@ -128,14 +129,30 @@ def inverse_covariance(N, Del, Sig, edges, xp):
     )
     Sig_prime = W @ xp.linalg.inv(L_sig).T.conj()[None, ...]
 
-    N_inv = undo_zeropad(N_inv, edges, xp = xp)
+    N_inv = undo_zeropad(N_inv, edges, xp = xp) 
     Del_prime = undo_zeropad(Del_prime, edges, xp = xp)
     Sig_prime = undo_zeropad(Sig_prime, edges, xp = xp)   
+
+
+    #TODO: TRYING TO GET DET PART OF CODE TO WORK... Current problems
+    # - problems referencing logdet before assignment (prob just need to restart
+    # VScode or something)
+    # - L_del and L_sig (apparently) aren't 1- or 2-D.. Need to look into this
+    #UPDATE: The problem is that they are 3-d (ie. still in 'block' form)
+    #need to figure out the best way to sum all the diags given this is the case
+    # print(L_del.shape)
+    # print(L_sig.shape)
+
+    if ret_det:
+        # logdet = 2*(xp.sum(xp.diag(L_del)) + xp.sum(xp.diag(L_sig)))
+        #the line should actually be -> Need to check why this works and how differ from xp.diag
+        logdet = 2*(xp.sum(xp.diagonal(L_del, axis2 = 1, axis1 = 2)) + xp.sum(xp.diagonal(L_sig)))
+        return logdet, N_inv, Del_prime, Sig_prime 
 
     return N_inv, Del_prime, Sig_prime
 
 
-def sparden_convert(Array, n_bl, n_eig, edges, xp = cp):
+def sparden_convert(Array, n_bl, n_eig, edges, xp):
     """
     Converts either the dense diffuse matrix to sparse, or the sparse diffuse matrix to dense. The array (either dense or sparse)
     should be simply handed to the function and the desired operation (sparse-to-dense or dense-to-sparse) will be performed automatically
@@ -166,5 +183,7 @@ def sparden_convert(Array, n_bl, n_eig, edges, xp = cp):
 
     return out
 
+
+print("hello world")
 
 
