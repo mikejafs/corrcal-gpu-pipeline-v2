@@ -1,3 +1,7 @@
+#TODO: Combine the functions from run_zp 1 and 2 D into one 
+#function with some logic to determine which cuda cp function
+#should be used depending on the shape of the input array
+
 import ctypes
 import time
 import numpy as np
@@ -40,10 +44,12 @@ def zeroPad(array, edges):
     )
     return out_array, largest_block, n_blocks
 
+
+
 def run(benchmark_zp, return_zp, return_plot):
-    n_bl = 20
-    n_eig = 1  #really just the number of cols in the source or diffuse mat's
-    n_ant = 5
+    n_bl = 120000
+    n_eig = 3  #really just the number of cols in the source or diffuse mat's
+    n_ant = 500
 
     #can use this array along with the seaborn heatmap
     #to even more easily check things are working
@@ -80,4 +86,4 @@ def run(benchmark_zp, return_zp, return_plot):
         print(f"Time on gpu: {gpu_t:.6f}s")
 
 if __name__ == "__main__":
-    run(benchmark_zp=False, return_zp=True, return_plot=True)
+    run(benchmark_zp=True, return_zp=False, return_plot=False)
