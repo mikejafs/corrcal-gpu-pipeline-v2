@@ -65,13 +65,18 @@ def zeroPad2d(array, edges):
     # cp.cuda.Stream.null.synchronize()
     return out_array, largest_block, n_blocks
 
-def zeroPad(array, edges):
+def zeroPad(array, edges, return_inv):
     array = cp.array(array, dtype=cp.double)
     edges = cp.array(edges, dtype=cp.int64)
     largest_block = cp.array(cp.diff(edges).max(), dtype = cp.int32)
     n_blocks = cp.array(edges.size - 1, dtype = cp.int32)
     largest_block = int(largest_block.get())
     n_blocks = int(n_blocks.get())
+
+    if return_inv==True:
+        array = 1/array
+    else:
+        pass
 
     if array.ndim == 1: 
         out_array = cp.zeros((n_blocks*largest_block), dtype = cp.double)
@@ -95,4 +100,5 @@ def zeroPad(array, edges):
             largest_block
         )
         cp.cuda.Stream.null.synchronize()
+
     return out_array, largest_block, n_blocks

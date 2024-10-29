@@ -1,7 +1,5 @@
 """Add working routines from mat inverse v8 and create class around them"""
 
-
-
 #add the full working routines here and create a class, then,
 #create another file that imports the class and uses them to perform the validation tests and timing tests
 
@@ -9,7 +7,6 @@
 #For benchmarking, should probably create a class that uses the benchmark code or maybe just a function for now
 #that is in its own folder called tests or something. The file name can be something like benchmark.py... We can expand
 #upon this later...
-
 
 """
 Module containing the routines required to perform the inverse covariance calculation.
@@ -21,6 +18,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import corrcal
 from cupyx.profiler import benchmark
+from zp_puregpu_funcs_py import *
 
 
 def zeropad(array, edges, xp):
@@ -88,7 +86,7 @@ def undo_zeropad(array, edges, xp):
     return out
 
 
-def inverse_covariance(N, Del, Sig, edges, xp, ret_det = False):
+def inverse_covariance(N, Del, Sig, edges, xp, ret_det = False, N_is_inv = True):
     """
     Given the components of the 2-level sparse covariance object, computes the components of the inverse covariance object. Currectly does not 
     support the option to return the determinant of the covariance.
@@ -111,12 +109,12 @@ def inverse_covariance(N, Del, Sig, edges, xp, ret_det = False):
     Sig': The primed version of the source component matrix
     """
 
-    Del = zeropad(Del, edges, xp = xp)
-    Sig = zeropad(Sig, edges, xp = xp)
-    N_inv = 1/N     
-    N_inv = zeropad(N_inv, edges, xp = xp)
+    if N_is_inv == True:
+        N_inv = N
+    else:
+        N_inv = 1/N
 
-    temp = N_inv[..., None] * Del    
+    temp = N_inv[..., None] * Del  
     temp2 = xp.transpose(Del, [0, 2, 1]) @ temp
     L_del = xp.linalg.cholesky(xp.eye(Del.shape[2])[None, ...] + temp2)   
     Del_prime = temp @ xp.transpose(xp.linalg.inv(L_del).conj(), [0, 2, 1]) 
@@ -128,11 +126,6 @@ def inverse_covariance(N, Del, Sig, edges, xp, ret_det = False):
         xp.eye(Sig.shape[2]) + xp.sum(xp.transpose(A.conj(), [0, 2, 1]) @ Sig, axis = 0) - xp.sum(B @ xp.transpose(B.conj(), [0, 2, 1]), axis = 0)
     )
     Sig_prime = W @ xp.linalg.inv(L_sig).T.conj()[None, ...]
-
-    N_inv = undo_zeropad(N_inv, edges, xp = xp) 
-    Del_prime = undo_zeropad(Del_prime, edges, xp = xp)
-    Sig_prime = undo_zeropad(Sig_prime, edges, xp = xp)   
-
 
     #TODO: TRYING TO GET DET PART OF CODE TO WORK... Current problems
     # - problems referencing logdet before assignment (prob just need to restart
@@ -148,6 +141,8 @@ def inverse_covariance(N, Del, Sig, edges, xp, ret_det = False):
         #the line should actually be -> Need to check why this works and how differ from xp.diag
         logdet = 2*(xp.sum(xp.diagonal(L_del, axis2 = 1, axis1 = 2)) + xp.sum(xp.diagonal(L_sig)))
         return logdet, N_inv, Del_prime, Sig_prime 
+    else:
+        pass
 
     return N_inv, Del_prime, Sig_prime
 

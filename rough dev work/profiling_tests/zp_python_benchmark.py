@@ -46,9 +46,9 @@ def zeropad(array, edges, xp):
 #let's benchmark the zeropad function
 
 #the main parametes describing our problem.
-n_bl = 120000
+n_bl = 12000000
 n_eig = 10
-n_src = 500
+# n_src = 500
 xp = np  #run things on the gpu using cupy
 
 #random array of edges for the diffuse matrix
@@ -59,7 +59,7 @@ edges = xp.concatenate((xp.array([0]), edges, xp.array([n_bl])))
 #some random noise, diffuse, and source covariance matrices
 sim_noise_mat = xp.random.rand(n_bl)**2   #in theory this is squared since is a variance
 sim_diff_mat = xp.random.rand(n_bl, n_eig)
-sim_src_mat = xp.random.rand(n_bl, n_src)
+# sim_src_mat = xp.random.rand(n_bl, n_src)
 
 # result = str(benchmark(zeropad, (sim_diff_mat, edges, xp), n_repeat=1000))
 # result = result.split()
