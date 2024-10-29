@@ -47,7 +47,7 @@ def zeropad(array, edges, xp):
 
 #the main parametes describing our problem.
 n_bl = 120000
-n_eig = 3
+n_eig = 10
 n_src = 500
 xp = np  #run things on the gpu using cupy
 
@@ -81,10 +81,12 @@ sim_src_mat = xp.random.rand(n_bl, n_src)
 # print(stop - start)
 
 print()
-print("CPU times using the timeit function with 1000 iterations")
+
 num_iter = 1000
+print(f"CPU times using the timeit function with {num_iter} iterations")
 time_taken = timeit.timeit('zeropad(sim_diff_mat, edges, xp)', 
                            setup='from __main__ import zeropad, sim_diff_mat, edges, xp', 
                            number=num_iter)
 
-print(f"Execution time: {time_taken/num_iter:.6f} seconds for 1000 iterations")
+print(f"Execution time: {time_taken/num_iter:.6f} seconds for {num_iter} iterations")
+

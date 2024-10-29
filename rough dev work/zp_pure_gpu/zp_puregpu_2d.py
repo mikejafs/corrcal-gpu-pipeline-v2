@@ -1,15 +1,12 @@
-#TODO: Combine the functions from run_zp 1 and 2 D into one 
-#function with some logic to determine which cuda cp function
-#should be used depending on the shape of the input array
-
 import ctypes
 import time
 import numpy as np
+import cupy as cp
 import seaborn as sns
 import matplotlib.pyplot as plt
 from cupyx.profiler import benchmark
 
-full_path = "/home/mike/corrcal_gpu_pipeline/rough dev work/zp_cuda/zp_cuda_2d.so"
+full_path = "/home/mike/corrcal_gpu_pipeline/rough dev work/zp_pure_gpu/zp_puregpu_2d.so"
 
 zp_cuda_lib = ctypes.cdll.LoadLibrary(full_path)
 
@@ -19,36 +16,36 @@ zp_cuda_lib.zeroPad.argtypes = [
     ctypes.POINTER(ctypes.c_long),
     ctypes.c_int,
     ctypes.c_int,
-    ctypes.c_int,
     ctypes.c_int
 ]
 
 def zeroPad(array, edges):
-    array = np.array(array, dtype=np.double)
-    edges = np.array(edges, dtype=np.int64)
-    array_rows = array.shape[0]
+    array = cp.array(array, dtype=cp.double)
+    edges = cp.array(edges, dtype=cp.int64)
+    # array_rows = array.shape[0]
     array_cols = array.shape[1]
-    largest_block = np.array(np.diff(edges).max(), dtype = np.int32)
-    n_blocks = np.array(edges.size - 1, dtype = np.int32)
-    
-    out_array = np.zeros((n_blocks*largest_block*array_cols), dtype = np.double)
+    largest_block = cp.array(cp.diff(edges).max(), dtype = cp.int32)
+    n_blocks = cp.array(edges.size - 1, dtype = cp.int32)
+    largest_block = int(largest_block.get())
+    n_blocks = int(n_blocks.get())
+
+    out_array = cp.zeros((n_blocks*largest_block*array_cols), dtype = cp.double)
 
     zp_cuda_lib.zeroPad(
-        array.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-        out_array.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-        edges.ctypes.data_as(ctypes.POINTER(ctypes.c_long)),
-        array_rows,
+        ctypes.cast(array.data.ptr, ctypes.POINTER(ctypes.c_double)),
+        ctypes.cast(out_array.data.ptr, ctypes.POINTER(ctypes.c_double)),
+        ctypes.cast(edges.data.ptr, ctypes.POINTER(ctypes.c_long)),
+        # array_rows,
         array_cols,
         n_blocks,
         largest_block
     )
+    # cp.cuda.Stream.null.synchronize()
     return out_array, largest_block, n_blocks
-
-
 
 def run(benchmark_zp, return_zp, return_plot):
     n_bl = 120000
-    n_eig = 3  #really just the number of cols in the source or diffuse mat's
+    n_eig = 10  #really just the number of cols in the source or diffuse mat's
     n_ant = 500
 
     #can use this array along with the seaborn heatmap
@@ -56,9 +53,9 @@ def run(benchmark_zp, return_zp, return_plot):
     # array2d = np.full((n_bl, n_eig), 1, dtype=np.double)
 
     #Random 2d array and simulated edges array
-    array2d = np.random.rand(n_bl, n_eig)
-    edges = np.unique(np.random.randint(1, n_bl - 1, size = n_ant))
-    edges = np.concatenate((np.array([0]), edges, np.array([n_bl], dtype = np.int64)))
+    array2d = cp.random.rand(n_bl, n_eig)
+    edges = cp.unique(cp.random.randint(1, n_bl - 1, size = n_ant))
+    edges = cp.concatenate((cp.array([0]), edges, cp.array([n_bl], dtype = cp.int64)))
     # print(edges)
 
     if return_zp:
@@ -78,7 +75,7 @@ def run(benchmark_zp, return_zp, return_plot):
             plt.close(fig)
     
     if benchmark_zp:
-        test_results = str(benchmark(zeroPad, (array2d, edges), n_repeat=1000))
+        test_results = str(benchmark(zeroPad, (array2d, edges), n_repeat=100))
         test_results = test_results.split()
         cpu_t = float(test_results[3])/1e6
         gpu_t = float(test_results[14])/1e6
