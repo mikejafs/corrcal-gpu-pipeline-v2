@@ -99,6 +99,7 @@ def zeroPad(array, edges, return_inv):
             n_blocks,
             largest_block
         )
+        out_array = out_array.reshape(n_blocks*largest_block, array_cols)
         cp.cuda.Stream.null.synchronize()
 
     return out_array, largest_block, n_blocks

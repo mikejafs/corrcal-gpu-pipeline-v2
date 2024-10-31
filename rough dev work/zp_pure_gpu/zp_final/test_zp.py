@@ -3,9 +3,9 @@ from cupyx.profiler import benchmark
 from zp_puregpu_funcs_py import *
 
 def run(benchmark_zp, return_zp, return_plot, nD):
-    n_bl = 120000
-    n_eig = 10  #really just the number of cols in the source or diffuse mat's
-    n_ant = 500
+    n_bl = 40000
+    n_eig = 3  #really just the number of cols in the source or diffuse mat's
+    n_ant = 100   #is really n_grps-1, since we add n_bls to edges (see below)
 
     #can use this array along with the seaborn heatmap
     #to even more easily check things are working
@@ -52,7 +52,7 @@ def run(benchmark_zp, return_zp, return_plot, nD):
         print(f"Time on gpu: {gpu_t:.6f}s")
 
 if __name__ == "__main__":
-    run(benchmark_zp=True, return_zp=False, return_plot=False, nD = 2)
+    run(benchmark_zp=True, return_zp=False, return_plot=False, nD = 1)
 
 
 

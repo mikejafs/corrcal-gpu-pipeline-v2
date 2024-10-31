@@ -147,7 +147,7 @@ def inverse_covariance(N, Del, Sig, edges, xp, ret_det = False, N_is_inv = True)
     return N_inv, Del_prime, Sig_prime
 
 
-def sparden_convert(Array, n_bl, n_eig, edges, xp):
+def sparden_convert(Array, largest_block, n_blocks, n_bl, n_eig, edges, xp, zeroPad=True):
     """
     Converts either the dense diffuse matrix to sparse, or the sparse diffuse matrix to dense. The array (either dense or sparse)
     should be simply handed to the function and the desired operation (sparse-to-dense or dense-to-sparse) will be performed automatically
@@ -168,17 +168,28 @@ def sparden_convert(Array, n_bl, n_eig, edges, xp):
     
     if Array.shape[1] == n_eig:
         n_grp = edges.size - 1
-        out = xp.zeros((n_bl, n_eig*n_grp))
-        for i, (start, stop) in enumerate(zip(edges, edges[1:])):
-            out[start:stop, i*n_eig : (i+1)*n_eig] = Array[start:stop]
+
+        if zeroPad:
+            out = xp.zeros((n_blocks*largest_block, n_eig*n_grp))
+            for i in range(n_blocks):
+                out[i*largest_block:(i+1)*largest_block, i*n_eig:(i+1)*n_eig
+                    ] = Array[i*largest_block:(i+1)*largest_block]
+        else:
+            out = xp.zeros((n_bl, n_eig*n_grp))
+            for i, (start, stop) in enumerate(zip(edges, edges[1:])):
+                out[start:stop, i*n_eig : (i+1)*n_eig] = Array[start:stop]
     else:
-        out = xp.zeros((n_bl, n_eig))
-        for i, (start, stop) in enumerate(zip(edges, edges[1:])):
-            out[start:stop] = Array[start:stop, i*n_eig : (i+1)*n_eig]
+        if zeroPad:
+            out = xp.zeros((n_blocks*largest_block))
+            raise NotImplementedError
+        else:
+            out = xp.zeros((n_bl, n_eig))
+            for i, (start, stop) in enumerate(zip(edges, edges[1:])):
+                out[start:stop] = Array[start:stop, i*n_eig : (i+1)*n_eig]
 
     return out
 
 
-print("hello world")
+# print("hello world")
 
 
