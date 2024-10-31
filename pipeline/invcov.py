@@ -140,10 +140,11 @@ def inverse_covariance(N, Del, Sig, edges, xp, ret_det = False, N_is_inv = True)
         # logdet = 2*(xp.sum(xp.diag(L_del)) + xp.sum(xp.diag(L_sig)))
         #the line should actually be -> Need to check why this works and how differ from xp.diag
         logdet = 2*(xp.sum(xp.diagonal(L_del, axis2 = 1, axis1 = 2)) + xp.sum(xp.diagonal(L_sig)))
+        cp.cuda.Stream.null.synchronize()
         return logdet, N_inv, Del_prime, Sig_prime 
     else:
         pass
-
+    cp.cuda.Stream.null.synchronize()
     return N_inv, Del_prime, Sig_prime
 
 
