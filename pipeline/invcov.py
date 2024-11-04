@@ -136,10 +136,14 @@ def inverse_covariance(N, Del, Sig, edges, xp, ret_det = False, N_is_inv = True)
     # print(L_del.shape)
     # print(L_sig.shape)
 
+    #NOTE: Removed the 2 that I was multiplying the det expression by, since I also forgot about the squareroot,
+    #meaning taking the log should means that we can factor out the 1/2 when saying the likelihood is proportional 
+    #to... (stuff)
+
     if ret_det:
         # logdet = 2*(xp.sum(xp.diag(L_del)) + xp.sum(xp.diag(L_sig)))
         #the line should actually be -> Need to check why this works and how differ from xp.diag
-        logdet = 2*(xp.sum(xp.diagonal(L_del, axis2 = 1, axis1 = 2)) + xp.sum(xp.diagonal(L_sig)))
+        logdet = (xp.sum(xp.diagonal(xp.log(L_del), axis2 = 1, axis1 = 2)) + xp.sum(xp.diagonal(xp.log(L_sig))))
         cp.cuda.Stream.null.synchronize()
         return logdet, N_inv, Del_prime, Sig_prime 
     else:
@@ -181,8 +185,8 @@ def sparden_convert(Array, largest_block, n_blocks, n_bl, n_eig, edges, xp, zero
                 out[start:stop, i*n_eig : (i+1)*n_eig] = Array[start:stop]
     else:
         if zeroPad:
-            out = xp.zeros((n_blocks*largest_block))
             raise NotImplementedError
+            out = xp.zeros((n_blocks*largest_block))
         else:
             out = xp.zeros((n_bl, n_eig))
             for i, (start, stop) in enumerate(zip(edges, edges[1:])):
