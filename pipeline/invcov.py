@@ -31,9 +31,10 @@ def zeropad(array, edges, xp):
 
     Parameters
     ----------
-    array: Input noise, diffuse, or source matrix. Should be of shape (n_bl,), (n_bl, n_eig), or (n_bl, n_src) respectively
+    array: Input noise, diffuse, or source matrix. Should be of shape (n_bl,), (n_bl, n_eig), or (n_bl, n_src) 
+        respectively
     edges: Array containing indices corresponding to the edges of redundant blocks in the diffuse matrix
-            Note that the "edges" index the beginning row (or "edge") of each redundant block
+        Note that the "edges" index the beginning row (or "edge") of each redundant block
     
     Returns
     -------
@@ -144,11 +145,11 @@ def inverse_covariance(N, Del, Sig, edges, xp, ret_det = False, N_is_inv = True)
         # logdet = 2*(xp.sum(xp.diag(L_del)) + xp.sum(xp.diag(L_sig)))
         #the line should actually be -> Need to check why this works and how differ from xp.diag
         logdet = (xp.sum(xp.diagonal(xp.log(L_del), axis2 = 1, axis1 = 2)) + xp.sum(xp.diagonal(xp.log(L_sig))))
-        cp.cuda.Stream.null.synchronize()
+        # cp.cuda.Stream.null.synchronize()
         return logdet, N_inv, Del_prime, Sig_prime 
     else:
         pass
-    cp.cuda.Stream.null.synchronize()
+    # cp.cuda.Stream.null.synchronize()
     return N_inv, Del_prime, Sig_prime
 
 
@@ -185,7 +186,7 @@ def sparden_convert(Array, largest_block, n_blocks, n_bl, n_eig, edges, xp, zero
                 out[start:stop, i*n_eig : (i+1)*n_eig] = Array[start:stop]
     else:
         if zeroPad:
-            raise NotImplementedError
+            raise NotImplementedError("Dense to sparse has not been implimented with zeropadded arrays yet")
             out = xp.zeros((n_blocks*largest_block))
         else:
             out = xp.zeros((n_bl, n_eig))

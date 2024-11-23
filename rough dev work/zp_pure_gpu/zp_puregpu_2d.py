@@ -45,7 +45,7 @@ def zeroPad(array, edges):
 
 def run(benchmark_zp, return_zp, return_plot):
     n_bl = 120000
-    n_eig = 10  #really just the number of cols in the source or diffuse mat's
+    n_eig = 3  #really just the number of cols in the source or diffuse mat's
     n_ant = 500
 
     #can use this array along with the seaborn heatmap
@@ -75,7 +75,7 @@ def run(benchmark_zp, return_zp, return_plot):
             plt.close(fig)
     
     if benchmark_zp:
-        test_results = str(benchmark(zeroPad, (array2d, edges), n_repeat=100))
+        test_results = str(benchmark(zeroPad, (array2d, edges), n_repeat=1000))
         test_results = test_results.split()
         cpu_t = float(test_results[3])/1e6
         gpu_t = float(test_results[14])/1e6
