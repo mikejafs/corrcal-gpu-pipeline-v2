@@ -89,7 +89,8 @@ def undo_zeropad(array, edges, xp):
 
 def inverse_covariance(N, Del, Sig, edges, xp, ret_det = False, N_is_inv = True):
     """
-    Given the components of the 2-level sparse covariance object, computes the components of the inverse covariance object. Currectly does not 
+    Given the components of the 2-level sparse covariance object, computes 
+    the components of the inverse covariance object. Currectly does not 
     support the option to return the determinant of the covariance.
 
     TODO: Add option to return the determinant
