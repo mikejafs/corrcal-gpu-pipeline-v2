@@ -28,6 +28,9 @@ def apply_gains_to_mat(gains, mat, edges, ant_1_array, ant_2_array, xp, is_zerop
     understood that antenna's 1 and 2 below to the baseline sitting at
     the same row as that baseline row in the \Delta matrix.
 
+    NOTE: Could be smart in the future to wrap the zeropadding of the gain 
+        matrix in a separate function.
+
     Params
     ------
     mat: Gains are applied to this. Can be 2d as in original C-corrcal.
@@ -37,73 +40,26 @@ def apply_gains_to_mat(gains, mat, edges, ant_1_array, ant_2_array, xp, is_zerop
     -------
     out: Matrix with applied gains (explain this a bit better)
     """
-    complex_gains = gains[::2] + 1j*gains[1::2]
-    gain_mat = complex_gains[ant_1_array, None] * complex_gains[ant_2_array, None].conj()
-    # print(gain_mat)
-
-    gain_mat = xp.array(gain_mat, dtype=xp.complex64)
-    out = xp.zeros_like(mat)
-    print(out.shape)
-    print()
-
     if is_zeropadded:
-        re_gains = gains[::2]
-        print(re_gains)
-        re_gs_a1 = re_gains[ant_1_array]
-        # print(re_gs_a1.shape)
-        re_gs_a2 = re_gains[ant_2_array]
-        re_gains = xp.concatenate((re_gs_a1, re_gs_a2))
-        print(re_gains)
-        zp_re_gs, _, _ = zeroPad(re_gains, edges, cp)
-        print(zp_re_gs.shape)
-        print(zp_re_gs)
-        zp_re_gs_a1 = zp_re_gs[:int(len(zp_re_gs)/2)]
-        zp_re_gs_a2 = zp_re_gs[int(len(zp_re_gs)/2):]
-        print(re_gs_a1.shape)
-        print(re_gs_a2.shape)
+        complex_gains = gains[::2] + 1j*gains[1::2]
+        tmp_gain_mat = complex_gains[ant_1_array, None] * complex_gains[ant_2_array, None].conj()
         
-        im_gains = gains[1::2]
-        im_gs_a1 = im_gains[ant_1_array]
-        im_gs_a2 = im_gains[ant_2_array]
-        im_gains = xp.concatenate((im_gs_a1, im_gs_a2))
-        zp_im_gs, lb, nb = zeroPad(re_gains, edges, cp)
-        zp_im_gs_a1 = zp_im_gs[:int(len(zp_im_gs)/2)]
-        zp_im_gs_a2 = zp_im_gs[int(len(zp_im_gs)/2):]
-        print(im_gs_a1.shape)
-        print(zp_re_gs_a1.shape)
-
-        # zp_re_gs_a1, lb, nb = zeroPad(re_gs_a1, edges, cp)
-        # zp_im_gs_a1, _, _ = zeroPad(im_gs_a1, edges, cp)
-        # zp_re_gs_a2, _, _ = zeroPad(re_gs_a2, edges, cp)
-        # zp_im_gs_a2, _, _ = zeroPad(im_gs_a2, edges, cp)
-        # print(zp_re_gs_a1.shape)
-
-        zp_cgs_a1 = zp_re_gs_a1 + 1j*zp_im_gs_a1
-        zp_cgs_a2 = zp_re_gs_a2 + 1j*zp_im_gs_a2
-
-        print(zp_cgs_a1.shape)
-        print(zp_cgs_a2.shape)
-
-        zp_gain_mat = zp_cgs_a1[:, None] * zp_cgs_a2[:, None].conj()
-        print(zp_gain_mat)
+        gain_mat = xp.zeros((len(complex_gains),1))   
+        gain_mat[::2] = tmp_gain_mat.real
+        gain_mat[1::2] = tmp_gain_mat.imag
         
-        zp_gain_mat_resh = zp_gain_mat.reshape(mat.shape[0], lb, 1)
-
-        print(f"zp gain mat shape {zp_gain_mat_resh.shape}")
-        print(zp_gain_mat_resh.real)
-        print(zp_gain_mat_resh.imag)
+        zp_gain_mat, largest_block, n_blocks = zeroPad(gain_mat, edges, cp)
+        re_zp_gain_mat = zp_gain_mat[::2]
+        im_zp_gain_mat = zp_gain_mat[1::2]
         
-        print(mat[:, ::2].shape)
-        print(mat[:, 1::2].shape)
-        print(zp_gain_mat_resh.shape)
-
-        out[:, ::2] = zp_gain_mat_resh.real * mat[:, ::2] - zp_gain_mat_resh.imag * mat[:, 1::2]
-        out[:, 1::2] = zp_gain_mat_resh.imag * mat[:, ::2] + zp_gain_mat_resh.real * mat[:, 1::2]
-
+        cplex_gain_mat = re_zp_gain_mat + 1j*im_zp_gain_mat
+        cplex_gain_mat = cplex_gain_mat.reshape(n_blocks, largest_block//2, 1)
+        
+        out = xp.zeros_like(mat)
+        out[:, ::2] = cplex_gain_mat.real * mat[:, ::2] - cplex_gain_mat.imag * mat[:, 1::2]
+        out[:, 1::2] = cplex_gain_mat.imag * mat[:, ::2] + cplex_gain_mat.real * mat[:, 1::2]
     else:
-        out[::2] = gain_mat.real * mat[::2] - gain_mat.imag * mat[1::2]
-        out[1::2] = gain_mat.imag * mat[::2] + gain_mat.real * mat[1::2]
-
+        raise NotImplementedError("Under construction")
+    
     return out
-
 
