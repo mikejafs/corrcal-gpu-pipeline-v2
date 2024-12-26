@@ -61,13 +61,15 @@ def zeropad(array, edges, xp):
 
 def undo_zeropad(array, edges, xp):
     """
-    Undoes (essentially does the exact opposite of) the work of the zeropad function.
+    Undoes (essentially does the exact opposite of) the work of the zeropad function. Also 'undoes'
+    the re-shaping to a vectorized array with n_blocks along the first axis, etc...
     
     Parameters
     ----------
-    array: Input noise, diffuse, or source matrix. Should be of shape (n_bl,), (n_bl, n_eig), or (n_bl, n_src) respectively
+    array: Input noise, diffuse, or source matrix. Should be of shape (n_blocks, largest_block, 1),
+        (n_blocks, largest_block, n_eig), or (n_blocks, largest_block, n_src) respectively
     edges: Array containing indices corresponding to the edges of redundant blocks in the diffuse matrix.
-            Note that the "edges" index the beginning row (or "edge") of each redundant block
+        Note that the "edges" index the beginning row (or "edge") of each redundant block
 
     Returns
     -------
