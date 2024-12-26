@@ -1,4 +1,7 @@
+import numpy as np
 from zp_puregpu_funcs_py import *
+from typing import Any
+from cupyx.profiler import benchmark
 
 def sparse_cov_times_vec(N, Del, Sig, N_inv, Del_prime, Sig_prime, vec, isinv, xp):
     """
@@ -20,14 +23,15 @@ def sparse_cov_times_vec(N, Del, Sig, N_inv, Del_prime, Sig_prime, vec, isinv, x
     return out
 
 
-def apply_gains_to_mat(gains: cp.ndarray, 
-                       mat, 
-                       edges, 
-                       ant_1_array, 
-                       ant_2_array, 
-                       xp, 
-                       is_zeropadded=True
-                       ):
+def apply_gains_to_mat(
+    gains: cp.ndarray, 
+    mat: cp.ndarray, 
+    edges: cp.ndarray, 
+    ant_1_array: cp.ndarray, 
+    ant_2_array: cp.ndarray, 
+    xp: Any, 
+    is_zeropadded: bool = True
+):
     """
     Apply a pair of complex gains to a matrix. Utilizes the Re/Im split.
     Only accounts for "one half" of the gain application, meaning the 
@@ -71,7 +75,6 @@ def apply_gains_to_mat(gains: cp.ndarray,
     out = xp.zeros_like(mat)
 
     if is_zeropadded:
-
         #construct gain mat in the original way
         tmp_gain_mat = (
             complex_gains[ant_1_array, None] * complex_gains[ant_2_array, None].conj()
@@ -83,7 +86,7 @@ def apply_gains_to_mat(gains: cp.ndarray,
         #Re/Im split the gain mat and zeropad using edges array
         gain_mat[::2] = tmp_gain_mat.real
         gain_mat[1::2] = tmp_gain_mat.imag
-        zp_gain_mat, largest_block, n_blocks = zeroPad(gain_mat, edges, cp)
+        zp_gain_mat, largest_block, n_blocks = zeroPad(gain_mat, edges, return_inv=False)
 
         #re-assemble and re-shape the (now zeropadded) complex gain mat
         re_zp_gain_mat = zp_gain_mat[::2]
@@ -107,3 +110,17 @@ def apply_gains_to_mat(gains: cp.ndarray,
         out[1::2] = gain_mat.imag * mat[::2] + gain_mat.real * mat[1::2]
     return out
 
+
+def summarize_benchmark_results(function, *args):
+    """
+    Use the CuPy benchmark function and nicely print out just the
+    total time spent on both the gpu and the cpu.
+    """
+
+    # print(args)
+    test_results = str(benchmark(function, (args), n_repeat=1000))
+    test_results = test_results.split()
+    cpu_t = float(test_results[3])/1e6
+    gpu_t = float(test_results[14])/1e6
+    print(f"Time on cpu: {cpu_t:.6f}s")
+    print(f"Time on gpu: {gpu_t:.6f}s")
