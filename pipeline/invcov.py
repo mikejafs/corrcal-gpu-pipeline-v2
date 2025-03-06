@@ -113,7 +113,7 @@ def inverse_covariance(N, Del, Sig, edges, xp, ret_det = False, N_is_inv = True)
     Sig': The primed version of the source component matrix
     """
 
-    if N_is_inv == True:
+    if N_is_inv:
         N_inv = N
     else:
         N_inv = 1/N
@@ -127,7 +127,11 @@ def inverse_covariance(N, Del, Sig, edges, xp, ret_det = False, N_is_inv = True)
     B = xp.transpose(Sig.conj(), [0, 2, 1]) @ Del_prime
     W = A - Del_prime @ xp.transpose(B.conj(), [0, 2, 1])
     L_sig = xp.linalg.cholesky(
-        xp.eye(Sig.shape[2]) + xp.sum(xp.transpose(A.conj(), [0, 2, 1]) @ Sig, axis = 0) - xp.sum(B @ xp.transpose(B.conj(), [0, 2, 1]), axis = 0)
+        xp.eye(Sig.shape[2]) + xp.sum(
+            xp.transpose(A.conj(), [0, 2, 1]) @ Sig, axis = 0
+        ) - xp.sum(
+            B @ xp.transpose(B.conj(), [0, 2, 1]), axis = 0
+        )
     )
     Sig_prime = W @ xp.linalg.inv(L_sig).T.conj()[None, ...]
 
@@ -158,8 +162,9 @@ def inverse_covariance(N, Del, Sig, edges, xp, ret_det = False, N_is_inv = True)
 
 def sparden_convert(Array, largest_block, n_blocks, n_bl, n_eig, edges, xp, zeroPad=True):
     """
-    Converts either the dense diffuse matrix to sparse, or the sparse diffuse matrix to dense. The array (either dense or sparse)
-    should be simply handed to the function and the desired operation (sparse-to-dense or dense-to-sparse) will be performed automatically
+    Converts either the dense diffuse matrix to sparse, or the sparse diffuse matrix to dense.
+    The array (either dense or sparse) should be simply handed to the function and the desired operation
+    (sparse-to-dense or dense-to-sparse) will be performed automatically
 
     Parameters
     ----------
@@ -171,8 +176,9 @@ def sparden_convert(Array, largest_block, n_blocks, n_bl, n_eig, edges, xp, zero
 
     Returns
     -------
-    out: If the dense form was provided, the sparse form with shape (n_bls x n_eig) will be returned. If the sparse form was provided, the dense
-        form with shape (n_bls x n_eig*n_grps) with n_grps = # redundant groups will be returned.
+    out: If the dense form was provided, the sparse form with shape (n_bls x n_eig) will be returned.
+        If the sparse form was provided, the dense form with shape (n_bls x n_eig*n_grps) with
+        n_grps = # redundant groups will be returned.
     """
     
     if Array.shape[1] == n_eig:
@@ -190,7 +196,7 @@ def sparden_convert(Array, largest_block, n_blocks, n_bl, n_eig, edges, xp, zero
     else:
         if zeroPad:
             raise NotImplementedError("Dense to sparse has not been implimented with zeropadded arrays yet")
-            out = xp.zeros((n_blocks*largest_block))
+            # out = xp.zeros((n_blocks * largest_block))
         else:
             out = xp.zeros((n_bl, n_eig))
             for i, (start, stop) in enumerate(zip(edges, edges[1:])):

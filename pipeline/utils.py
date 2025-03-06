@@ -22,12 +22,93 @@ def sparse_cov_times_vec(N, Del, Sig, N_inv, Del_prime, Sig_prime, vec, isinv, x
         out = N * vec + Del_prime @ del_tmp + Sig_prime @ sig_tmp  
     return out
 
+"""
+-----------------------------------------------------------------------------------------------------------------------
+Separating the zeropadding of the gains matrix into its own funnction and making a new apply gains to mat function
+-----------------------------------------------------------------------------------------------------------------------
+"""
+
+def zeropad_gains(gains, edges, ant_1_array, ant_2_array, xp=cp, return_inv=False):
+    """
+    Zeropads and constructs the gain matrix used to apply gains to the source and
+    diffuse matrices.
+
+    Params
+    ------
+    gains
+
+    edges
+
+    xp
+
+    Returns
+    _______
+    cplex_gain_mat
+        Zeropadded gain matrix
+    """
+
+    complex_gains = gains[::2] + 1j*gains[1::2]
+
+    # NOTE: Not entirely sure why we construct the cplex gain mat in this way =>
+    #   Need to think a bit more about why this is..
+    tmp_gain_mat = (
+            complex_gains[ant_1_array, None] * complex_gains[ant_2_array, None].conj()
+    )
+
+    # initialize gain mat to be zeropadded
+    gain_mat = xp.zeros((len(complex_gains), 1))
+
+    # Re/Im split the gain mat and zeropad using edges array
+    gain_mat[::2] = tmp_gain_mat.real
+    gain_mat[1::2] = tmp_gain_mat.imag
+    zp_gain_mat, largest_block, n_blocks = zeroPad(gain_mat, edges, return_inv=False)
+
+    # re-assemble and re-shape the (now zeropadded) complex gain mat
+    re_zp_gain_mat = zp_gain_mat[::2]
+    im_zp_gain_mat = zp_gain_mat[1::2]
+    cplex_gain_mat = re_zp_gain_mat + 1j * im_zp_gain_mat
+    cplex_gain_mat = cplex_gain_mat.reshape(n_blocks, largest_block // 2, 1)
+
+    return cplex_gain_mat
+
+
+def apply_gains(cplex_gain_mat, mat, xp=cp):
+    """
+    Same as the apply_gains_to_mat function below but with the zeropadding of the gain
+    matrix done in a separate function above. Note that in the world where we used this
+    function, the gain matrix has already been constructed elsewhere and so all we need
+    to do here is apply the gains.
+
+    TODO: Fill out rest of docstring later
+
+    """
+    #initialize output matrix that will have gains applied
+    out = xp.zeros_like(mat)
+
+    #apply the gains
+    out[:, ::2] = (
+        cplex_gain_mat.real * mat[:, ::2] - cplex_gain_mat.imag * mat[:, 1::2]
+    )
+    out[:, 1::2] = (
+        cplex_gain_mat.imag * mat[:, ::2] + cplex_gain_mat.real * mat[:, 1::2]
+    )
+
+    return out
+
+
+"""
+-----------------------------------------------------------------------------------------------------------------------
+Original way of doing things where the gain matrix is constructed and zeropadded and applied to the mat all
+in the same function
+-----------------------------------------------------------------------------------------------------------------------
+"""
+
 
 def apply_gains_to_mat(
     gains: cp.ndarray, 
     mat: cp.ndarray, 
     edges: cp.ndarray, 
-    ant_1_array: cp.ndarray, 
+    ant_1_array: cp.ndarray, #these have length = n_bls
     ant_2_array: cp.ndarray, 
     xp: Any, 
     is_zeropadded: bool = True
@@ -76,6 +157,9 @@ def apply_gains_to_mat(
 
     if is_zeropadded:
         #construct gain mat in the original way
+
+        #NOTE: Not entirely sure why we construct the cplex gain mat in this way =>
+        #   Need to think a bit more about why this is..
         tmp_gain_mat = (
             complex_gains[ant_1_array, None] * complex_gains[ant_2_array, None].conj()
         )
@@ -92,7 +176,8 @@ def apply_gains_to_mat(
         re_zp_gain_mat = zp_gain_mat[::2]
         im_zp_gain_mat = zp_gain_mat[1::2]
         cplex_gain_mat = re_zp_gain_mat + 1j*im_zp_gain_mat
-        cplex_gain_mat = cplex_gain_mat.reshape(n_blocks, largest_block//2, 1)
+        cplex_gain_mat = cplex_gain_mat.reshape(n_blocks, largest_block//2, 1)  #really shouldn't need the floor devision
+        # if edges array has even number of entries for every block, but leaving in for now
 
         #apply the gains
         out[:, ::2] = (
@@ -124,3 +209,6 @@ def summarize_benchmark_results(function, *args):
     gpu_t = float(test_results[14])/1e6
     print(f"Time on cpu: {cpu_t:.6f}s")
     print(f"Time on gpu: {gpu_t:.6f}s")
+
+
+
