@@ -6,10 +6,14 @@ from cupyx.profiler import benchmark
 def sparse_cov_times_vec(N, Del, Sig, N_inv, Del_prime, Sig_prime, vec, isinv, xp):
     """
     Multiplies a sparse covariance object by a vector from the right
+
+    #TODO: Could be beneficial to separate this function (for the sake of too many arguments)
+        into one function for cov_times_data and inv_cov_times_data
     """
     if vec.ndim == 2:
         vec = vec.reshape(vec.shape[0], vec.shape[1], 1)
         N_inv = N_inv.reshape(vec.shape[0], vec.shape[1], 1)
+        N = N.reshape(vec.shape[0], vec.shape[1], 1)
     else:
         pass
     if isinv:
@@ -19,7 +23,8 @@ def sparse_cov_times_vec(N, Del, Sig, N_inv, Del_prime, Sig_prime, vec, isinv, x
     else:
         del_tmp = xp.transpose(Del, [0, 2, 1]) @ vec
         sig_tmp = xp.sum(xp.transpose(Sig, [0, 2, 1]) @ vec, axis=0)
-        out = N * vec + Del_prime @ del_tmp + Sig_prime @ sig_tmp  
+        out = N * vec + Del_prime @ del_tmp + Sig_prime @ sig_tmp
+    # out = out.reshape(vec.shape[0], vec.shape[1])
     return out
 
 """
@@ -62,6 +67,9 @@ def zeropad_gains(gains, edges, ant_1_array, ant_2_array, xp=cp, return_inv=Fals
     gain_mat[::2] = tmp_gain_mat.real
     gain_mat[1::2] = tmp_gain_mat.imag
     zp_gain_mat, largest_block, n_blocks = zeroPad(gain_mat, edges, return_inv=False)
+    # print(zp_gain_mat.shape)
+    zp_gain_mat = zp_gain_mat.reshape(n_blocks*largest_block, 1)
+    # print(zp_gain_mat.shape)
 
     # re-assemble and re-shape the (now zeropadded) complex gain mat
     re_zp_gain_mat = zp_gain_mat[::2]
@@ -171,6 +179,7 @@ def apply_gains_to_mat(
         gain_mat[::2] = tmp_gain_mat.real
         gain_mat[1::2] = tmp_gain_mat.imag
         zp_gain_mat, largest_block, n_blocks = zeroPad(gain_mat, edges, return_inv=False)
+        zp_gain_mat = zp_gain_mat.reshape(n_blocks * largest_block, 1)
 
         #re-assemble and re-shape the (now zeropadded) complex gain mat
         re_zp_gain_mat = zp_gain_mat[::2]

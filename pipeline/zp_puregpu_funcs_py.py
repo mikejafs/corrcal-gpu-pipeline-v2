@@ -83,10 +83,32 @@ def zeroPad2d(array, edges):
 
 def zeroPad(array, edges, return_inv):
     """
-    Could be a good idea to reshape everything to 2d and 3d before returning
-    so that the user doesn't have to reshape manually. Need to check if this 
-    makes sense given the current inv covariance routine...
+    Zeropads an input matrix according to the largest block in the diffuse
+    sky covariance matrix. In other words, calculates the largest block using
+    the edges array and adds rows of zeros in every other redundant block such
+    that each block is the same size.
+
+    Params
+    ------
+    array
+        Input matrix to be zeropadded
+    edges
+        Array of indices defining the beginning and end of each redundant block
+        in the diffuse matrix
+    return_inv
+        Boolean. Set to True if want to calculate 1/noise_mat to avoid divide by
+        zero issues after zeropadding
+
+    Returns
+    -------
+    out_array
+        Zeropadded array.
+    largest_block
+        The size of the largest block in the diffuse matrix.
+    n_blocks
+        Total number of redundant blocks.
     """
+
     array = cp.array(array, dtype=cp.double)
     edges = cp.array(edges, dtype=cp.int64)
     largest_block = cp.array(cp.diff(edges).max(), dtype = cp.int32)
@@ -108,6 +130,7 @@ def zeroPad(array, edges, return_inv):
             n_blocks,
             largest_block
         )
+        out_array = out_array.reshape(n_blocks, largest_block)
         cp.cuda.Stream.null.synchronize()
     else:
         array_cols = array.shape[1]
@@ -120,13 +143,18 @@ def zeroPad(array, edges, return_inv):
             n_blocks,
             largest_block
         )
-        out_array = out_array.reshape(n_blocks*largest_block, array_cols)
+        out_array = out_array.reshape(n_blocks, largest_block, array_cols)
         cp.cuda.Stream.null.synchronize()
-
     return out_array, largest_block, n_blocks
 
     
-def undo_zeroPad(array, edges):
+def undo_zeroPad(array, edges, ReImsplit=False):
+    """
+    "Undoes" the action of the zeroPad function. In other words, takes a matrix
+    that has been padded with zeros according to the largest diffuse matrix block
+    and returns the original matrix in its state prior to zeropadding.
+    """
+
     array = cp.array(array, dtype=cp.double)
     edges = cp.array(edges, dtype=cp.int64)
     largest_block = cp.array(cp.diff(edges).max(), dtype = cp.int32)
@@ -134,9 +162,18 @@ def undo_zeroPad(array, edges):
     largest_block = int(largest_block.get())
     n_blocks = int(n_blocks.get())
 
+    if ReImsplit:
+        largest_block = largest_block
+        n_bl = int(edges[-1])
+    else:
+        largest_block = int(largest_block/2)
+        n_bl = int(edges[-1]/2)
+        # edges = cp.array([int(x/2) for x in edges])
+        edges = edges//2
+
     if array.shape[2] == 1:
         array = array.reshape(n_blocks*largest_block)
-        out_array = cp.zeros((int(edges[-1])), dtype = cp.double)
+        out_array = cp.zeros(n_bl, dtype = cp.double)
         zp_cuda_lib.undo_zeroPad1d(
             ctypes.cast(array.data.ptr, ctypes.POINTER(ctypes.c_double)),
             ctypes.cast(out_array.data.ptr, ctypes.POINTER(ctypes.c_double)),
@@ -144,6 +181,7 @@ def undo_zeroPad(array, edges):
             n_blocks,
             largest_block
         )
+        # out_array = out_array.reshape(n_blocks, largest_block, 1)
         cp.cuda.Stream.null.synchronize()
     else:
         array_cols = array.shape[2]
@@ -158,6 +196,7 @@ def undo_zeroPad(array, edges):
             n_blocks,
             largest_block
         )
+        # out_array = out_array.reshape(n_blocks, largest_block, array_cols)
         cp.cuda.Stream.null.synchronize()
 
     return out_array

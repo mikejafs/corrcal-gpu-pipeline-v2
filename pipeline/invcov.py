@@ -18,8 +18,6 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import corrcal
 from cupyx.profiler import benchmark
-from zp_puregpu_funcs_py import *
-
 
 def zeropad(array, edges, xp):
     """
