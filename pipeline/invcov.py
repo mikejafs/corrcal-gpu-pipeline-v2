@@ -203,6 +203,4 @@ def sparden_convert(Array, largest_block, n_blocks, n_bl, n_eig, edges, xp, zero
     return out
 
 
-# print("hello world")
-
 

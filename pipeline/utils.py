@@ -77,8 +77,12 @@ def zeropad_gains(gains, edges, ant_1_array, ant_2_array, xp=cp, return_inv=Fals
             complex_gains[ant_1_array, None] * complex_gains[ant_2_array, None].conj()
     )
 
+    # print(tmp_gain_mat)
+    # print(complex_gains.shape)
+
     # initialize gain mat to be zeropadded
-    gain_mat = xp.zeros((len(complex_gains), 1))
+    # gain_mat = xp.zeros((len(complex_gains), 1))
+    gain_mat = xp.zeros((2*len(tmp_gain_mat), 1))
 
     # Re/Im split the gain mat and zeropad using edges array
     gain_mat[::2] = tmp_gain_mat.real
@@ -86,7 +90,7 @@ def zeropad_gains(gains, edges, ant_1_array, ant_2_array, xp=cp, return_inv=Fals
     zp_gain_mat, largest_block, n_blocks = zeroPad(gain_mat, edges, return_inv=False)
     # print(zp_gain_mat.shape)
     zp_gain_mat = zp_gain_mat.reshape(n_blocks*largest_block, 1)
-    # print(zp_gain_mat.shape)
+    # print(zp_gai-n_mat.shape)
 
     # re-assemble and re-shape the (now zeropadded) complex gain mat
     re_zp_gain_mat = zp_gain_mat[::2]

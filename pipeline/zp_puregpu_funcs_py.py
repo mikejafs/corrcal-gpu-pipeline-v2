@@ -38,7 +38,11 @@ zp_cuda_lib.undo_zeroPad2d.argtypes = [
     ctypes.c_int
 ]
 
-
+"""
+Stand alone 1d and 2d versions were just for initial 
+testing. They are both packaged into the full zeroPad
+and undo_zeroPad funcs below.
+"""
 def zeroPad1d(array, edges):
     array = cp.array(array, dtype=cp.double)
     edges = cp.array(edges, dtype=cp.int64)
@@ -80,6 +84,7 @@ def zeroPad2d(array, edges):
     )
     # cp.cuda.Stream.null.synchronize()
     return out_array, largest_block, n_blocks
+
 
 def zeroPad(array, edges, return_inv):
     """
@@ -171,7 +176,7 @@ def undo_zeroPad(array, edges, ReImsplit=False):
         # edges = cp.array([int(x/2) for x in edges])
         edges = edges//2
 
-    if array.shape[2] == 1:
+    if array.ndim == 2:
         array = array.reshape(n_blocks*largest_block)
         out_array = cp.zeros(n_bl, dtype = cp.double)
         zp_cuda_lib.undo_zeroPad1d(
