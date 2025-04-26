@@ -96,7 +96,9 @@ def zeroPad(array, edges, return_inv):
     Params
     ------
     array
-        Input matrix to be zeropadded
+        Input matrix to be zeropadded.
+        CAUTION: Array must be of the 1d/2d form 
+
     edges
         Array of indices defining the beginning and end of each redundant block
         in the diffuse matrix
@@ -108,6 +110,8 @@ def zeroPad(array, edges, return_inv):
     -------
     out_array
         Zeropadded array.
+        CAUTION: Output array is of the 2d/3d form
+
     largest_block
         The size of the largest block in the diffuse matrix.
     n_blocks
