@@ -6,3 +6,8 @@ math behind main routines, along with simulations & validation tests.
 Note that especially so, this folder is more designed for work that has already been through a significant amount of 
 debugging and testing in another more-or-less designated folder; this folder is more like a 'good copy' place for rough
 work, if that even makes sense....
+
+Said a bit differently, if a file or function requires quite a bit of work to get it to a working state, the place 
+for all of the "proptotyping" is in the Thesis_rough_work directory. Then, after the final product is in a working
+state, it gets migrated to this rough_dev_work directory. A more final draft version of the final working product or
+functionality is then moved from this folder to the pipeline directory in corrcal_gpu_pipeline. 
