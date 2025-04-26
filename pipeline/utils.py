@@ -1,5 +1,6 @@
 import numpy as np
 import cupy as cp
+from typing import Any
 from zp_puregpu_funcs_py import *
 from cupyx.profiler import benchmark
 
@@ -12,17 +13,14 @@ def sparse_cov_times_vec(N, Del, Sig, vec, isinv):
     """
     if vec.ndim == 2:
         vec = vec.reshape(vec.shape[0], vec.shape[1], 1)
-        N_inv = N_inv.reshape(vec.shape[0], vec.shape[1], 1)
         N = N.reshape(vec.shape[0], vec.shape[1], 1)
     else:
         pass
+    del_tmp = cp.transpose(Del, [0, 2, 1]) @ vec
+    sig_tmp = cp.sum(cp.transpose(Sig, [0, 2, 1]) @ vec, axis=0)
     if isinv:
-        del_tmp = cp.transpose(Del, [0, 2, 1]) @ vec
-        sig_tmp = cp.sum(cp.transpose(Sig, [0, 2, 1]) @ vec, axis=0)
-        out = N_inv * vec - Del @ del_tmp - Sig @ sig_tmp
+        out = N * vec - Del @ del_tmp - Sig @ sig_tmp
     else:
-        del_tmp = cp.transpose(Del, [0, 2, 1]) @ vec
-        sig_tmp = cp.sum(cp.transpose(Sig, [0, 2, 1]) @ vec, axis=0)
         out = N * vec + Del @ del_tmp + Sig @ sig_tmp
     # out = out.reshape(vec.shape[0], vec.shape[1])
     return out
