@@ -1,9 +1,9 @@
 import numpy as np
+import cupy as cp
 from zp_puregpu_funcs_py import *
-from typing import Any
 from cupyx.profiler import benchmark
 
-def sparse_cov_times_vec(N, Del, Sig, N_inv, Del_prime, Sig_prime, vec, isinv, xp):
+def sparse_cov_times_vec(N, Del, Sig, vec, isinv):
     """
     Multiplies a sparse covariance object by a vector from the right
 
@@ -17,32 +17,17 @@ def sparse_cov_times_vec(N, Del, Sig, N_inv, Del_prime, Sig_prime, vec, isinv, x
     else:
         pass
     if isinv:
-        del_tmp = xp.transpose(Del_prime, [0, 2, 1]) @ vec
-        sig_tmp = xp.sum(xp.transpose(Sig_prime, [0, 2, 1]) @ vec, axis=0)
-        out = N_inv * vec - Del_prime @ del_tmp - Sig_prime @ sig_tmp
+        del_tmp = cp.transpose(Del, [0, 2, 1]) @ vec
+        sig_tmp = cp.sum(cp.transpose(Sig, [0, 2, 1]) @ vec, axis=0)
+        out = N_inv * vec - Del @ del_tmp - Sig @ sig_tmp
     else:
-        del_tmp = xp.transpose(Del, [0, 2, 1]) @ vec
-        sig_tmp = xp.sum(xp.transpose(Sig, [0, 2, 1]) @ vec, axis=0)
+        del_tmp = cp.transpose(Del, [0, 2, 1]) @ vec
+        sig_tmp = cp.sum(cp.transpose(Sig, [0, 2, 1]) @ vec, axis=0)
         out = N * vec + Del @ del_tmp + Sig @ sig_tmp
     # out = out.reshape(vec.shape[0], vec.shape[1])
     return out
 
-# def sparse_cov_times_vec(N, Del, Sig, N_inv, Del_prime, Sig_prime, vec, isinv, xp):
-#     if vec.ndim == 2:
-#         vec = vec.reshape(vec.shape[0], vec.shape[1], 1)
-#         N = N.reshape(vec.shape[0], vec.shape[1], 1)
-#         N_inv = N_inv.reshape(vec.shape[0], vec.shape[1], 1)
-#     else:
-#         pass
-#     if isinv:
-#         del_tmp = xp.transpose(Del_prime, [0, 2, 1]) @ vec
-#         sig_tmp = xp.sum(xp.transpose(Sig_prime, [0, 2, 1]) @ vec, axis=0)
-#         out = N_inv * vec - Del_prime @ del_tmp - Sig_prime @ sig_tmp
-#     else:
-#         del_tmp = xp.transpose(Del, [0, 2, 1]) @ vec
-#         sig_tmp = xp.sum(xp.transpose(Sig, [0, 2, 1]) @ vec, axis=0)
-#         out = N * vec + Del @ del_tmp + Sig @ sig_tmp
-#     return out
+
 
 """
 -----------------------------------------------------------------------------------------------------------------------
@@ -125,13 +110,13 @@ def apply_gains(cplex_gain_mat, mat, xp=cp):
     return out
 
 
+
 """
 -----------------------------------------------------------------------------------------------------------------------
 Original way of doing things where the gain matrix is constructed and zeropadded and applied to the mat all
 in the same function
 -----------------------------------------------------------------------------------------------------------------------
 """
-
 
 def apply_gains_to_mat(
     gains: cp.ndarray, 
