@@ -87,7 +87,7 @@ def undo_zeropad(array, edges, xp):
     return out
 
 
-def inverse_covariance(N, Del, Sig, edges, xp, ret_det = False, N_is_inv = True):
+def inverse_covariance(N, Del, Sig, xp, ret_det = False, N_is_inv = True):
     """
     Given the components of the 2-level sparse covariance object, computes 
     the components of the inverse covariance object. Currectly does not 
