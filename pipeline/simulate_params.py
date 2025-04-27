@@ -9,7 +9,7 @@ parameters.
 import numpy as np
 import cupy as cp
 
-class sim_corrcal_params():
+class SimCorrcalParams():
     def __init__(self, n_ant, n_eig, n_src, xp):
         self.n_ant = n_ant
         self.n_eig = n_eig
@@ -22,7 +22,7 @@ class sim_corrcal_params():
         return ant_1_array, ant_2_array
     
     def n_bl(self):
-        ant_1_array, ant_2_array = self.ant_arrays()
+        ant_1_array = self.ant_arrays()[0]
         n_bl = 2*len(ant_1_array)
         return n_bl
 
@@ -39,5 +39,15 @@ class sim_corrcal_params():
         data = self.xp.random.rand(self.n_bl(), dtype='float64')
         return noise_mat, diff_mat, src_mat, gains, data
 
-    
+    # def return_cpu_data(self):
+    #     noise_mat = cp.asnumpy(self.sim_data()[0])
+    #     diff_mat = cp.asnumpy(self.sim_data()[1])
+    #     src_mat = cp.asnumpy(self.sim_data()[2])
+    #     gains_mat = cp.asnumpy(self.sim_data()[3])
+    #     data_vec = cp.asnumpy(self.sim_data()[4])
+    #     edges_mat = cp.asnumpy(self.edges())
+    #     ant_1_data = cp.asnumpy(self.ant_arrays()[0])
+    #     ant_2_data = cp.asnumpy(self.ant_arrays()[1])
+    #     return noise_mat, diff_mat, src_mat, gains_mat, data_vec, edges_mat, ant_1_data, ant_2_data
+
 

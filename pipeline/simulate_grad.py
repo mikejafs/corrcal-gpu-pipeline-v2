@@ -8,6 +8,7 @@ whole array) and n_bls are adjusted accordingly. -> these latter steps
 are the most recent update from the work in the grad2 folder.
 """
 
+import cupy as cp
 import numpy as np
 import matplotlib.pyplot as plt
 from corrcal import SparseCov

@@ -19,6 +19,47 @@ from invcov import *
 from populate_grad_py import *
 
 
+def gpu_nll(gains,
+            noise,
+            diff_mat,
+            src_mat,
+            data,
+            edges,
+            ant_1_array,
+            ant_2_array,
+            scale=1,
+            phs_norm_fac=cp.inf,
+            ):
+    """
+    """
+    #zeropad noise, diffuse, source matrices, and gain matrices
+    zp_noise_inv, lb, nb = zeroPad(noise, edges, return_inv=True)
+    zp_noise, _, _ = zeroPad(noise, edges, return_inv=False)  #need the non-inverse for constructing regular sparce cov
+    zp_diff_mat, _, _ = zeroPad(diff_mat, edges, return_inv=False)
+    zp_src_mat, _, _ = zeroPad(src_mat, edges, return_inv=False)
+    zp_data, _, _ = zeroPad(data, edges, return_inv=False)
+    zp_cplex_gain_mat = zeropad_gains(gains, edges, ant_1_array, ant_2_array, xp = cp, return_inv=False)
+
+    #apply gains to the source and diffuse matrices (ie. constructing the 'true' convariance)
+    gain_diff_mat = apply_gains(zp_cplex_gain_mat, zp_diff_mat, xp=cp)
+    gain_src_mat = apply_gains(zp_cplex_gain_mat, zp_src_mat, xp=cp)
+
+    logdet, inv_noise, inv_diff, inv_src = inverse_covariance(zp_noise_inv, gain_diff_mat, gain_src_mat, cp, ret_det=True, N_is_inv=True)
+
+    #cinv_data = cinv @ data
+    zp_cinv_data = sparse_cov_times_vec(inv_noise, inv_diff, inv_src, zp_data, isinv=True)
+    cinv_data = undo_zeroPad(zp_cinv_data, edges, ReImsplit=True)   
+    data = undo_zeroPad(zp_data, edges, ReImsplit=True)
+    cinv_data = cinv_data.reshape(int(edges[-1]))
+    chisq = data @ (cinv_data)
+
+    # Use a Gaussian prior that the average phase should be nearly zero
+    phases = cp.arctan2(gains[1::2], gains[::2])
+    phs_norm = cp.mean(phases)**2 / phs_norm_fac**2
+    return cp.real(chisq) + logdet + phs_norm
+
+
+
 #full grad function
 def gpu_grad_nll(n_ant, 
                  gains, 
@@ -30,8 +71,8 @@ def gpu_grad_nll(n_ant,
                  src_mat, 
                  edges, 
                  ant_1_array, 
-                 ant_2_array, 
-                 xp):
+                 ant_2_array,
+                 ):
     """
     Compute the GPU-accelerated gradient of the negative log-likelihood.
 
@@ -106,7 +147,7 @@ def gpu_grad_nll(n_ant,
         inv_src[:, ::2]**2 + inv_src[:, 1::2]**2, axis=2
     )
 
-    #reshape inverse power anticipating reversing the zeropadding
+    #reshape inverse power anticipating undoing zeropadding
     inv_power = inv_power.reshape(nb, int(lb/2), 1)
 
     #accumulate gradient
