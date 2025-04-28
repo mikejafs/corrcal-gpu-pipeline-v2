@@ -52,7 +52,7 @@ def simulate(n_ant, return_benchmark=True):
     sim_data = xp.random.rand(n_bl, dtype='float64')
 
     #run gpu version of grad_nll
-    gpu_grad = gpu_grad_nll(n_ant, sim_gains, sim_data, 1, np.inf, sim_noise_mat, sim_diff_mat, sim_src_mat, edges, ant_1_array, ant_2_array, xp=cp)
+    gpu_grad = gpu_grad_nll(n_ant, sim_gains, sim_data, 1, np.inf, sim_noise_mat, sim_diff_mat, sim_src_mat, edges, ant_1_array, ant_2_array)
 
     if return_benchmark:
         gpu_times = benchmark(gpu_grad_nll, (n_ant, sim_gains, sim_data, 1, np.inf, sim_noise_mat, sim_diff_mat, sim_src_mat, edges, ant_1_array, ant_2_array, cp), n_repeat=10)
@@ -89,7 +89,7 @@ def simulate(n_ant, return_benchmark=True):
 
 
 
-def present_simulation_results(
+def present_grad_nll_tests(
         n_ant,
         n_trials=1,
         print_single_check=True,

@@ -10,7 +10,7 @@ from corrcal.optimize import *
 from optimize import *
 from simulate_params import *
 
-def simulate_nll(n_ant, n_eig, n_src):
+def simulate_nll(n_ant, n_eig, n_src, return_ans, return_benchmark):
 
     spms = SimCorrcalParams(n_ant, n_eig, n_src, xp=cp)
     ant_1_array, ant_2_array = spms.ant_arrays()
@@ -25,20 +25,25 @@ def simulate_nll(n_ant, n_eig, n_src):
     data = sim_data[4]
 
     """ SIMULATE GPU VERSION """
-    nll_gpu = gpu_nll(gains,
-                  noise,
-                  diff,
-                  src,
-                  data,
-                  edges,
-                  ant_1_array,
-                  ant_2_array,
-                  scale=1,
-                  phs_norm_fac=cp.inf
-                  )
-    
+    if return_ans:
+        nll_gpu = gpu_nll(gains,
+                    noise,
+                    diff,
+                    src,
+                    data,
+                    edges,
+                    ant_1_array,
+                    ant_2_array,
+                    scale=1,
+                    phs_norm_fac=cp.inf
+                    )
+
+    if return_benchmark:
+        pass
+
+
     # print(f"gpu nll dtype {(nll_gpu.shape)}")
-    print(nll_gpu)
+    # print(nll_gpu)
 
     """ SIMULATE CPU VERSION """
     noise = cp.asnumpy(noise)
@@ -61,6 +66,10 @@ def simulate_nll(n_ant, n_eig, n_src):
 
     """return comparison results"""
     return np.allclose(nll_gpu, nll_cpu)
+
+
+def present_nll_tests():
+    pass        
 
 
 if __name__ == "__main__":
