@@ -31,6 +31,51 @@ def gpu_nll(gains,
             phs_norm_fac=cp.inf,
             ):
     """
+    Compute the negative log-likelihood on the GPU for a quasi-redundant interferometric dataset.
+
+    This routine zero-pads the noise, diffuse and source covariance matrices, applies per-antenna gains,
+    forms the full sparse covariance, and then evaluates
+    χ² = dataᵀ C⁻¹ data plus a Gaussian prior on the average gain phase.
+
+    Parameters
+    ----------
+    gains : cupy.ndarray, shape (2 * n_ant,)
+        Per-antenna complex gains in interleaved real/imag format:
+        even indices are Re(g), odd indices are Im(g).
+    noise : array_like or cupy.ndarray
+        Noise covariance matrix to be zero-padded and (inverted).
+    diff_mat : array_like or cupy.ndarray
+        Diffuse sky covariance matrix to be zero-padded.
+    src_mat : array_like or cupy.ndarray
+        Point-source covariance matrix to be zero-padded.
+    data : array_like or cupy.ndarray
+        Real-valued visibility data, sorted into quasi-redundant groups
+        and interleaved real/imag values.
+    edges : sequence of int
+        Boundary indices defining the zero-padding/unpadding segmentation.
+    ant_1_array : cupy.ndarray, shape (n_baselines,)
+        Index of the first antenna in each baseline (for gain application).
+    ant_2_array : cupy.ndarray, shape (n_baselines,)
+        Index of the second antenna in each baseline.
+    scale : float, optional
+        Factor by which gains were scaled before entering the CG solver
+        (default is 1, i.e. no pre-scaling).
+    phs_norm_fac : float, optional
+        Standard deviation of a Gaussian prior on the *average* gain phase.
+        Set to `cp.inf` to disable this prior (default).
+
+    Returns
+    -------
+    cupy.ndarray (scalar)
+        The negative log-likelihood (up to an additive constant):
+        Re[dataᵀ C⁻¹ data] + log det(C) + (mean_phase)² / phs_norm_fac².
+
+    Notes
+    -----
+    - Internally uses `zeroPad`/`undo_zeroPad` to manage block structure.
+    - Builds the inverse covariance via `inverse_covariance` and applies it
+      to `data` using `sparse_cov_times_vec` for memory efficiency.
+    - The phase prior term helps regularize global phase degeneracies.
     """
     #zeropad noise, diffuse, source matrices, and gain matrices
     zp_noise_inv, lb, nb = zeroPad(noise, edges, return_inv=True)
