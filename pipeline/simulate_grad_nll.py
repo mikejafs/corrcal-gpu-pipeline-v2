@@ -55,7 +55,7 @@ def simulate(n_ant, return_benchmark=True):
     gpu_grad = gpu_grad_nll(n_ant, sim_gains, sim_data, 1, np.inf, sim_noise_mat, sim_diff_mat, sim_src_mat, edges, ant_1_array, ant_2_array)
 
     if return_benchmark:
-        gpu_times = benchmark(gpu_grad_nll, (n_ant, sim_gains, sim_data, 1, np.inf, sim_noise_mat, sim_diff_mat, sim_src_mat, edges, ant_1_array, ant_2_array, cp), n_repeat=10)
+        gpu_times = benchmark(gpu_grad_nll, (n_ant, sim_gains, sim_data, 1, np.inf, sim_noise_mat, sim_diff_mat, sim_src_mat, edges, ant_1_array, ant_2_array), n_repeat=10)
 
     """ RUNNING WITH CORRCAL """
     #Convert everything to Numpy arrays first
@@ -149,26 +149,26 @@ def present_grad_nll_tests(
             # truth = cp.asnumpy(truth)
             results_n_ant.append(truth)
         
-        plt.figure(figsize=(20,15))
+        plt.figure(figsize=(18,16))
         plt.plot(results_n_ant, 'o')
-        plt.title(f"Number of antennas = {n_ant}", fontsize=17)
-        plt.xlabel('N Trials', fontsize=16)
-        plt.ylabel(r'Agreement with CPU $\nabla (-\text{log}\mathcal{L})$', fontsize=16)
+        plt.title(f"Number of antennas = {n_ant}", fontsize=18)
+        plt.xlabel('N Trials', fontsize=17)
+        plt.ylabel(r'Agreement with CPU $\nabla (-\text{log}\mathcal{L})$', fontsize=17)
         if save_fig:
-            plt.savefig('test_plots/grad3_truth_for_nant={}.png'.format(n_ant), dpi=300, format='png', bbox_inches='tight')
+            plt.savefig('comparison_plots/grad_nll_truth_nant={}.png'.format(n_ant), dpi=300, format='png', bbox_inches='tight')
         plt.show()
 
     if plot_comparison:
-        plt.figure(figsize=(20,15))
+        plt.figure(figsize=(18,16))
         for i in range(n_trials):
             print(f"on trial {i}")
             result, cpu_grad, truth = simulate(n_ant = n_ant, return_benchmark=benchmark)
             plt.plot(result, marker='.', lw=0, ms=1)
-            plt.title(f"Number of realizations = {n_trials}", fontsize=17)
-            plt.xlabel("Number of Antennas (Re Im Split)", fontsize=16)
-            plt.ylabel(r"$\nabla \mathcal{L}_{gpu} - \nabla \mathcal{L}_{cpu}$", fontsize=16)
+            plt.title(f"Number of realizations = {n_trials}", fontsize=18)
+            plt.xlabel("Number of Antennas (Re Im Split)", fontsize=17)
+            plt.ylabel(r"$\nabla log\mathcal{L}_{gpu} - \nabla log\mathcal{L}_{cpu}$", fontsize=17)
         if save_fig:
-            plt.savefig('test_plots/grad3_difference_for_nant={}.png'.format(n_ant), dpi=300, format='png', bbox_inches='tight')
+            plt.savefig('comparison_plots/grad_nll_difference_nant={}.png'.format(n_ant), dpi=300, format='png', bbox_inches='tight')
         plt.show()
 
 
