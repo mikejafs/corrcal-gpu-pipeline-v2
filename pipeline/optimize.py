@@ -207,6 +207,8 @@ def gpu_grad_nll(n_ant,
         n_ant, gains, s, t, P, noise, ant_1_array, ant_2_array
     )
 
+    # return gradr, gradi
+
     #calculate dLdg
     A = gradr + gradr.T
     B = gradi.T - gradi

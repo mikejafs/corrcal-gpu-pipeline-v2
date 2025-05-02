@@ -17,7 +17,7 @@ from optimize import *
 from cupyx.profiler import benchmark
 
 
-def simulate(n_ant, return_benchmark=True):
+def simulate(n_ant, rand_seed, return_benchmark=True ):
     #TODO: construct a class for simulating these parameters
     #with detailed descriptions of the sizes with motivations
 
@@ -32,6 +32,7 @@ def simulate(n_ant, return_benchmark=True):
     n_eig = 3         #number of eigenmodes
     n_src = 5         #number of sources
     xp = cp           # run things on the gpu using cupy
+    cp.random.seed(rand_seed)   
 
     #define edges array
     edges = (xp.unique(xp.random.randint(1, int(n_bl / 2) - 1, size=n_ant)* 2))
@@ -53,6 +54,8 @@ def simulate(n_ant, return_benchmark=True):
 
     #run gpu version of grad_nll
     gpu_grad = gpu_grad_nll(n_ant, sim_gains, sim_data, 1, np.inf, sim_noise_mat, sim_diff_mat, sim_src_mat, edges, ant_1_array, ant_2_array)
+    # gradr, gradi = gpu_grad_nll(n_ant, sim_gains, sim_data, 1, np.inf, sim_noise_mat, sim_diff_mat, sim_src_mat, edges, ant_1_array, ant_2_array)
+    # gradr, gradi = cp.asnumpy(gradr), cp.asnumpy(gradi)
 
     if return_benchmark:
         gpu_times = benchmark(gpu_grad_nll, (n_ant, sim_gains, sim_data, 1, np.inf, sim_noise_mat, sim_diff_mat, sim_src_mat, edges, ant_1_array, ant_2_array), n_repeat=10)
@@ -68,12 +71,12 @@ def simulate(n_ant, return_benchmark=True):
     ant_1_data = cp.asnumpy(ant_1_array)
     ant_2_data = cp.asnumpy(ant_2_array)
 
-    #use simulated params to create sparse cov object and feed to cpu grad_nll
+    # #use simulated params to create sparse cov object and feed to cpu grad_nll
     cov = SparseCov(noise_mat, src_mat, diff_mat, edges_mat, n_eig, isinv=False)
     cpu_grad = grad_nll(gains_mat, cov, data_vec, ant_1_data, ant_2_data, scale=1, phs_norm_fac=np.inf)
 
-    if return_benchmark:
-        cpu_times = benchmark(grad_nll, (gains_mat, cov, data_vec, ant_1_data, ant_2_data, 1, np.inf), n_repeat=10)
+    # if return_benchmark:
+    #     cpu_times = benchmark(grad_nll, (gains_mat, cov, data_vec, ant_1_data, ant_2_data, 1, np.inf), n_repeat=10)
 
     """ COMPARING OUTPUTS BTWN CPU AND GPU """
     #send gpu stuff to cpu for comparison
@@ -82,21 +85,24 @@ def simulate(n_ant, return_benchmark=True):
     #variable storing whether cpu grad_nll matches gpu grad_nll
     truth_check =  np.allclose(gpu_grad_np, cpu_grad)
 
-    if return_benchmark:
-        return gpu_times, cpu_times, gpu_grad_np - cpu_grad, cpu_grad, truth_check 
+    # if return_benchmark:
+    #     return gpu_times, cpu_times, gpu_grad_np - cpu_grad, cpu_grad, truth_check 
 
     return gpu_grad_np - cpu_grad, cpu_grad, truth_check
 
+    # return gradr, gradi
 
 
 def present_grad_nll_tests(
         n_ant,
-        n_trials=1,
+        n_trials,
+        rand_seed,
         print_single_check=True,
         plot_truth_check=True,
         plot_comparison=True,
         save_fig=True,    
         benchmark=True,
+        debug_grad=True 
         ):
     
     """
@@ -131,6 +137,36 @@ def present_grad_nll_tests(
     None
     """
     
+
+    if debug_grad:
+        results = []
+        for i in range(n_trials):
+            print(f"on trial {i}")
+            gradr, gradi = simulate(n_ant=n_ant, return_benchmark=benchmark, rand_seed=rand_seed)
+            results.append([gradr, gradi])
+
+            # gradr = gradr.reshape(n_ant*n_ant)
+            # gradi = gradi.reshape(n_ant*n_ant)
+            # plt.plot(gradr)
+            # plt.plot(gradi)
+        # plt.plot(result)
+
+        # print(results[0])
+        # print()
+        # print(results[1])
+        # print(np.allclose(results[0], results[1]))
+
+        results2 = []
+        for i in range(len(results)-1):
+            # print(results)
+            if np.allclose(results[i], results[i+1]):
+                # print("true")
+                continue
+            else:
+                results2.append(i)
+        print(results2)
+        # plt.show()
+
     if print_single_check:
         result, cpu_grad, truth = simulate(n_ant = n_ant, return_benchmark=benchmark)
         print(truth)
@@ -145,11 +181,12 @@ def present_grad_nll_tests(
         results_n_ant = []
         for i in range(n_trials):   
             print(f"on trial {i}")
-            result, cpu_grad, truth = simulate(n_ant = n_ant, return_benchmark=benchmark)
+            result, cpu_grad, truth = simulate(n_ant = n_ant, return_benchmark=benchmark, rand_seed=rand_seed)
             # truth = cp.asnumpy(truth)
             results_n_ant.append(truth)
-        
-        plt.figure(figsize=(18,16))
+
+        # return results_n_ant        
+        plt.figure(figsize=(18,10))
         plt.plot(results_n_ant, 'o')
         plt.title(f"Number of antennas = {n_ant}", fontsize=18)
         plt.xlabel('N Trials', fontsize=17)
@@ -157,6 +194,7 @@ def present_grad_nll_tests(
         if save_fig:
             plt.savefig('comparison_plots/grad_nll_truth_nant={}.png'.format(n_ant), dpi=300, format='png', bbox_inches='tight')
         plt.show()
+
 
     if plot_comparison:
         plt.figure(figsize=(18,16))
@@ -172,3 +210,33 @@ def present_grad_nll_tests(
         plt.show()
 
 
+if __name__ == "__main__":
+
+    full_bool_list = []
+    for i in range(1):
+        print(f"on seed {i}")
+        bool_list = present_grad_nll_tests(
+            n_ant = 780,
+            n_trials=10,
+            rand_seed=24,
+            print_single_check=False,
+            plot_truth_check=True,
+            plot_comparison=False,
+            save_fig=False,
+            benchmark=False,
+            debug_grad=False
+        )
+        # full_bool_list.append(bool_list)
+    # print(full_bool_list)
+
+    # for i in range(len(full_bool_list)):
+    #     if full_bool_list[i] != True:
+    #         print(full_bool_list[i])
+
+    # for i, list in enumerate(full_bool_list):
+    #     flag = True
+    #     for bool in list:
+    #         if not bool:
+    #             if flag:
+    #                 print(f"false on random seed {i}")
+    #             flag = False   
