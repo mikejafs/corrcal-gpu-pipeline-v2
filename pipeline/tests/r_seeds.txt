@@ -1,8 +1,8 @@
 false on random seed 0
 false on random seed 21
 false on random seed 22
-false on random seed 24
-false on random seed 25
+false on random seed 24 -> seems to be the only one that causes problems actually (and starts around n_ant = 800)
+false on random seed 25        NOTE: I haven't played around with too many others explicitely, however..
 false on random seed 28
 false on random seed 34
 false on random seed 37

@@ -23,8 +23,9 @@ def gpu_nll(gains,
             noise,
             diff_mat,
             src_mat,
-            data,
             edges,
+            data,
+            n_ant, 
             ant_1_array,
             ant_2_array,
             scale=1,
@@ -77,6 +78,10 @@ def gpu_nll(gains,
       to `data` using `sparse_cov_times_vec` for memory efficiency.
     - The phase prior term helps regularize global phase degeneracies.
     """
+
+    gains = cp.asarray(gains, dtype=cp.complex128)
+
+
     #zeropad noise, diffuse, source matrices, and gain matrices
     zp_noise_inv, lb, nb = zeroPad(noise, edges, return_inv=True)
     zp_noise, _, _ = zeroPad(noise, edges, return_inv=False)  #need the non-inverse for constructing regular sparce cov
@@ -106,17 +111,17 @@ def gpu_nll(gains,
 
 
 #full grad function
-def gpu_grad_nll(n_ant, 
-                 gains, 
-                 data, 
-                 scale, 
-                 phs_norm_fac, 
+def gpu_grad_nll(gains, 
                  noise, 
                  diff_mat, 
                  src_mat, 
                  edges, 
+                 data, 
+                 n_ant, 
                  ant_1_array, 
                  ant_2_array,
+                 scale, 
+                 phs_norm_fac, 
                  ):
     """
     Compute the GPU-accelerated gradient of the negative log-likelihood.
