@@ -79,7 +79,8 @@ def gpu_nll(gains,
     - The phase prior term helps regularize global phase degeneracies.
     """
 
-    gains = cp.asarray(gains, dtype=cp.complex128)
+    #chat gpt suggestion, maybe not the best thing to use
+    # gains = cp.asarray(gains, dtype=cp.complex128)
 
 
     #zeropad noise, diffuse, source matrices, and gain matrices
@@ -104,9 +105,60 @@ def gpu_nll(gains,
     chisq = data @ (cinv_data)
 
     # Use a Gaussian prior that the average phase should be nearly zero
-    phases = cp.arctan2(gains[1::2], gains[::2])
+    # phases = cp.arctan2(gains[1::2], gains[::2])
+
+    complex_gains = gains[::2] + 1j*gains[1::2]
+    phases = cp.angle(complex_gains)
+
     phs_norm = cp.mean(phases)**2 / phs_norm_fac**2
     return cp.real(chisq) + logdet + phs_norm
+
+    # gains = cp.asarray(gains, dtype=cp.complex128)
+    # print(" ↪ gains[0:6]:", gains[:6])
+
+    # zp_noise_inv, lb, nb = zeroPad(noise, edges, return_inv=True)
+    # print(" ↪ zp_noise_inv has NaN?", bool(cp.any(cp.isnan(zp_noise_inv))),
+    #       " inf?", bool(cp.any(cp.isinf(zp_noise_inv))))
+
+    # zp_diff_mat, _, _ = zeroPad(diff_mat, edges, return_inv=False)
+    # print(" ↪ zp_diff_mat dtype/shape:", zp_diff_mat.dtype, zp_diff_mat.shape,
+    #       " any NaN?", bool(cp.any(cp.isnan(zp_diff_mat))))
+
+    # zp_src_mat, _, _ = zeroPad(src_mat, edges, return_inv=False)
+    # print(" ↪ zp_src_mat dtype/shape:", zp_src_mat.dtype, zp_src_mat.shape,
+    #       " any NaN?", bool(cp.any(cp.isnan(zp_src_mat))))
+
+    # zp_data, _, _ = zeroPad(data, edges, return_inv=False)
+    # print(" ↪ zp_data dtype/shape:", zp_data.dtype, zp_data.shape)
+
+    # zp_cplex_gain_mat = zeropad_gains(gains, edges, ant_1_array, ant_2_array, xp=cp)
+    # print(" ↪ zp_cplex_gain_mat any NaN?", bool(cp.any(cp.isnan(zp_cplex_gain_mat))))
+
+    # gain_diff_mat = apply_gains(zp_cplex_gain_mat, zp_diff_mat, xp=cp)
+    # gain_src_mat  = apply_gains(zp_cplex_gain_mat, zp_src_mat, xp=cp)
+    # print(" ↪ gain_diff_mat any NaN?", bool(cp.any(cp.isnan(gain_diff_mat))),
+    #       " gain_src_mat NaN?", bool(cp.any(cp.isnan(gain_src_mat))))
+
+    # logdet, inv_noise, inv_diff, inv_src = inverse_covariance(
+    #     zp_noise_inv, gain_diff_mat, gain_src_mat, cp, ret_det=True, N_is_inv=True
+    # )
+    # print(" ↪ logdet:", logdet,
+    #       " inv_diff NaN?", bool(cp.any(cp.isnan(inv_diff))))
+
+    # zp_cinv_data = sparse_cov_times_vec(inv_noise, inv_diff, inv_src, zp_data, isinv=True)
+    # cinv_data   = undo_zeroPad(zp_cinv_data, edges, ReImsplit=True)
+    # data_unp    = undo_zeroPad(zp_data, edges, ReImsplit=True)
+    # chisq       = data_unp @ cinv_data
+    # print(" ↪ chisq:", chisq)
+
+    # # …then the phase prior…
+    # complex_gains = gains[::2] + 1j*gains[1::2]
+    # phases = cp.angle(complex_gains)
+    # print(" ↪ phases[0:6]:", phases[:6])
+
+    # total = cp.real(chisq) + logdet + (cp.mean(phases)**2 / phs_norm_fac**2)
+    # print(" ↪ total NLL:", total)
+    # return total
 
 
 
