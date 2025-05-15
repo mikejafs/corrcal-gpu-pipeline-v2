@@ -127,6 +127,14 @@ def zeroPad(array, edges, return_inv):
 
     if return_inv:
         array = 1/array
+
+    # #--------------------------
+    #     eps = 1e-8
+    #     array = cp.where(cp.abs(array) < eps, eps, array)
+    #     array = 1.0 / array
+    # #--------------------------
+    
+    
     else:
         pass
 

@@ -13,6 +13,8 @@ import sys
 # sys.path.insert(0, target_dir)
 
 import cupy as cp
+import torch
+import torch.utils.dlpack
 from zp_puregpu_funcs_py import *
 from utils import *
 from invcov import *
@@ -79,9 +81,26 @@ def gpu_nll(gains,
     - The phase prior term helps regularize global phase degeneracies.
     """
 
-    #chat gpt suggestion, maybe not the best thing to use
-    # gains = cp.asarray(gains, dtype=cp.complex128)
+    # convert every input from tensor to cupy array
+    # gains_capsule = torch.utils.dlpack.to_dlpack(gains)
+    # noise_capsule = torch.utils.dlpack.to_dlpack(noise)
+    # diff_mat_capsule = torch.utils.dlpack.to_dlpack(diff_mat)
+    # src_mat_capsule = torch.utils.dlpack.to_dlpack(src_mat)
+    # edges_capsule = torch.utils.dlpack.to_dlpack(edges)
+    # data_capsule = torch.utils.dlpack.to_dlpack(data)
+    # ant_1_array_capsule = torch.utils.dlpack.to_dlpack(ant_1_array)
+    # ant_2_array_capsule = torch.utils.dlpack.to_dlpack(ant_2_array)
 
+    # gains = cp.from_dlpack(gains_capsule)
+    # noise = cp.from_dlpack(noise_capsule)
+    # diff_mat = cp.from_dlpack(diff_mat_capsule)
+    # src_mat = cp.from_dlpack(src_mat_capsule)
+    # edges = cp.from_dlpack(edges_capsule)
+    # data = cp.from_dlpack(data_capsule)
+    # ant_1_array = cp.from_dlpack(ant_1_array_capsule)
+    # ant_2_array = cp.from_dlpack(ant_2_array_capsule)
+    
+    
 
     #zeropad noise, diffuse, source matrices, and gain matrices
     zp_noise_inv, lb, nb = zeroPad(noise, edges, return_inv=True)
@@ -111,55 +130,54 @@ def gpu_nll(gains,
     phases = cp.angle(complex_gains)
 
     phs_norm = cp.mean(phases)**2 / phs_norm_fac**2
-    return cp.real(chisq) + logdet + phs_norm
+    nll = cp.real(chisq) + logdet + phs_norm
 
-    # gains = cp.asarray(gains, dtype=cp.complex128)
-    # print(" ↪ gains[0:6]:", gains[:6])
+    return nll
 
-    # zp_noise_inv, lb, nb = zeroPad(noise, edges, return_inv=True)
-    # print(" ↪ zp_noise_inv has NaN?", bool(cp.any(cp.isnan(zp_noise_inv))),
-    #       " inf?", bool(cp.any(cp.isinf(zp_noise_inv))))
+    nll_capsule = nll.toDlpack()
+    nll_tensor = torch.from_dlpack(nll_capsule)
 
-    # zp_diff_mat, _, _ = zeroPad(diff_mat, edges, return_inv=False)
-    # print(" ↪ zp_diff_mat dtype/shape:", zp_diff_mat.dtype, zp_diff_mat.shape,
-    #       " any NaN?", bool(cp.any(cp.isnan(zp_diff_mat))))
+    return nll_tensor
 
-    # zp_src_mat, _, _ = zeroPad(src_mat, edges, return_inv=False)
-    # print(" ↪ zp_src_mat dtype/shape:", zp_src_mat.dtype, zp_src_mat.shape,
-    #       " any NaN?", bool(cp.any(cp.isnan(zp_src_mat))))
+def cal_gpu_nll(
+            gains,
+            noise,
+            diff_mat,
+            src_mat,
+            edges,
+            data,
+            n_ant, 
+            ant_1_array,
+            ant_2_array,
+            scale=1,
+            phs_norm_fac=cp.inf
+            ):
+    gains = cp.array(gains)
+    noise = cp.array(noise)
+    diff_mat = cp.array(diff_mat)
+    src_mat = cp.array(src_mat)
+    edges = cp.array(edges)
+    data = cp.array(data)
+    ant_1_array = cp.array(ant_1_array)
+    ant_2_array = cp.array(ant_2_array)
 
-    # zp_data, _, _ = zeroPad(data, edges, return_inv=False)
-    # print(" ↪ zp_data dtype/shape:", zp_data.dtype, zp_data.shape)
+    nll = gpu_nll(            
+            gains,
+            noise,
+            diff_mat,
+            src_mat,
+            edges,
+            data,
+            n_ant, 
+            ant_1_array,
+            ant_2_array,
+            scale=1,
+            phs_norm_fac=cp.inf
+            )
+    
+    nll = cp.asnumpy(nll)
 
-    # zp_cplex_gain_mat = zeropad_gains(gains, edges, ant_1_array, ant_2_array, xp=cp)
-    # print(" ↪ zp_cplex_gain_mat any NaN?", bool(cp.any(cp.isnan(zp_cplex_gain_mat))))
-
-    # gain_diff_mat = apply_gains(zp_cplex_gain_mat, zp_diff_mat, xp=cp)
-    # gain_src_mat  = apply_gains(zp_cplex_gain_mat, zp_src_mat, xp=cp)
-    # print(" ↪ gain_diff_mat any NaN?", bool(cp.any(cp.isnan(gain_diff_mat))),
-    #       " gain_src_mat NaN?", bool(cp.any(cp.isnan(gain_src_mat))))
-
-    # logdet, inv_noise, inv_diff, inv_src = inverse_covariance(
-    #     zp_noise_inv, gain_diff_mat, gain_src_mat, cp, ret_det=True, N_is_inv=True
-    # )
-    # print(" ↪ logdet:", logdet,
-    #       " inv_diff NaN?", bool(cp.any(cp.isnan(inv_diff))))
-
-    # zp_cinv_data = sparse_cov_times_vec(inv_noise, inv_diff, inv_src, zp_data, isinv=True)
-    # cinv_data   = undo_zeroPad(zp_cinv_data, edges, ReImsplit=True)
-    # data_unp    = undo_zeroPad(zp_data, edges, ReImsplit=True)
-    # chisq       = data_unp @ cinv_data
-    # print(" ↪ chisq:", chisq)
-
-    # # …then the phase prior…
-    # complex_gains = gains[::2] + 1j*gains[1::2]
-    # phases = cp.angle(complex_gains)
-    # print(" ↪ phases[0:6]:", phases[:6])
-
-    # total = cp.real(chisq) + logdet + (cp.mean(phases)**2 / phs_norm_fac**2)
-    # print(" ↪ total NLL:", total)
-    # return total
-
+    return nll
 
 
 #full grad function
@@ -259,6 +277,15 @@ def gpu_grad_nll(gains,
     t = undo_zeroPad(zp_t, edges, ReImsplit=False)
     P = undo_zeroPad(inv_power, edges, ReImsplit=False)
 
+    # print(f" gpu s shape: {s.shape}")
+    # print(f" gpu s dtype: {s.dtype}")
+    # print(t.shape)
+    # print(P.shape)
+
+    # print(f"gpu s elements: \n {t[:10]}")
+    
+    # return s, t, P
+
     #fill out the dLdG gradient (n_ant x n_ant) matrix
     gradr, gradi = populate_gradient(
         n_ant, gains, s, t, P, noise, ant_1_array, ant_2_array
@@ -277,6 +304,10 @@ def gpu_grad_nll(gains,
     gradient[::2] = dLdgr
     gradient[1::2] = dLdgi
 
+    # print(gradient.shape)
+
+    # return gradient
+
     #phase normalization
     amps = cp.sqrt(gains[::2]**2 + gains[1::2]**2)
     phases = cp.arctan2(gains[1::2], gains[::2])
@@ -287,6 +318,47 @@ def gpu_grad_nll(gains,
 
     return gradient/scale
 
+
+def cal_gpu_grad_nll(
+            gains,
+            noise,
+            diff_mat,
+            src_mat,
+            edges,
+            data,
+            n_ant, 
+            ant_1_array,
+            ant_2_array,
+            scale=1,
+            phs_norm_fac=cp.inf
+            ):
+    
+    gains = cp.array(gains)
+    noise = cp.array(noise)
+    diff_mat = cp.array(diff_mat)
+    src_mat = cp.array(src_mat)
+    edges = cp.array(edges)
+    data = cp.array(data)
+    ant_1_array = cp.array(ant_1_array)
+    ant_2_array = cp.array(ant_2_array)
+
+    grad_nll = gpu_grad_nll(            
+            gains,
+            noise,
+            diff_mat,
+            src_mat,
+            edges,
+            data,
+            n_ant, 
+            ant_1_array,
+            ant_2_array,
+            scale=1,
+            phs_norm_fac=cp.inf
+            )
+    
+    grad_nll = cp.asnumpy(grad_nll)
+
+    return grad_nll
 
 
 def populate_gradient(n_ant, gains, s, t, P, noise, ant_1_inds, ant_2_inds):

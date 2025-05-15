@@ -10,6 +10,7 @@ from corrcal.optimize import *
 from optimize import *
 from simulate_params import *
 from cupyx.profiler import benchmark
+from fancy_plotting import *
 
 def simulate_nll(n_ant, n_eig, n_src, return_ans, return_benchmark):
 
@@ -40,8 +41,10 @@ def simulate_nll(n_ant, n_eig, n_src, return_ans, return_benchmark):
                     )
 
     if return_benchmark:
-        gpu_times = benchmark(gpu_nll, (gains, noise, diff, src, data, edges, ant_1_array, ant_2_array, 1, cp.inf), n_repeat = 100)
-
+        gpu_times = str(benchmark(gpu_nll, (gains, noise, diff, src, data, edges, ant_1_array, ant_2_array, 1, cp.inf), n_repeat = 100))
+        gpu_times = gpu_times.split()
+        gpu_cpu_t = float(gpu_times[3])/1e6
+        gpu_gpu_t = float(gpu_times[14])/1e6
 
     # print(f"gpu nll dtype {(nll_gpu.shape)}")
     # print(nll_gpu)
@@ -71,10 +74,16 @@ def simulate_nll(n_ant, n_eig, n_src, return_ans, return_benchmark):
         truth_check = np.allclose(nll_cpu, gpu_nll_result)
 
     if return_benchmark:
-        cpu_times = benchmark(nll, (gains, cov, data, ant_1_array, ant_2_array, 1, np.inf), n_repeat=100)
+        cpu_times = str(benchmark(nll, (gains, cov, data, ant_1_array, ant_2_array, 1, np.inf), n_repeat=100))
+        cpu_times = cpu_times.split()
+        cpu_cpu_t = float(cpu_times[3])/1e6
+        cpu_gpu_t = float(cpu_times[14])/1e6
+        # print(f"Time on cpu: {cpu_t:.6f}s")
+        # print(f"Time on gpu: {gpu_t:.6f}s")
+
 
     if return_benchmark:
-        return  cpu_times, gpu_times
+        return  cpu_cpu_t, cpu_gpu_t, gpu_cpu_t, gpu_gpu_t
     
     if return_ans:
         return gpu_nll_result - nll_cpu, nll_cpu, truth_check
@@ -131,26 +140,65 @@ def present_nll_tests(
             plt.show()
 
     if benchmark:
-        cpu_times, gpu_times = simulate_nll(n_ant, n_eig, n_src, return_ans, return_benchmark=benchmark)
-        print(f"\n cpu times: \n \n {cpu_times} \n \n \n" 
-              f"gpu times: \n \n {gpu_times} \n"
-              )
+        c_cpu_times, c_gpu_times, g_cpu_times, g_gpu_times = simulate_nll(n_ant, n_eig, n_src, return_ans, return_benchmark=benchmark)
+        return c_cpu_times, c_gpu_times, g_cpu_times, g_gpu_times 
+        # print(f"\n cpu times: \n \n {cpu_times} \n \n \n" 
+        #       f"gpu times: \n \n {gpu_times} \n"
+        #       )
+
 
 
 if __name__ == "__main__":
-    n_ant = 10
+    # n_ant = 10
     n_eig = 3
     n_src = 5
 
-    present_nll_tests(
-        n_ant,
-        n_eig,
-        n_src,
-        n_trials=10,
-        return_ans=True,
-        print_single_check=True,
-        plot_truth_check=False,
-        plot_comparison=False,
-        save_fig=False,
-        benchmark=False,
-    )
+    fancy_plotting(use_tex=True)
+    # present_nll_tests(
+    #     n_ant,
+    #     n_eig,
+    #     n_src,
+    #     n_trials=10,
+    #     return_ans=True,
+    #     print_single_check=True,
+    #     plot_truth_check=False,
+    #     plot_comparison=False,
+    #     save_fig=False,
+    #     benchmark=False,
+    # )
+
+    ant_list = np.array([2**2, 2**3, 2**4, 2**5, 2**6, 2**7, 2**8, 2**9, 2**10])
+    # ant_list = np.array([2**4])
+
+    ccts = []
+    cgts = []
+    gcts = []
+    ggts = []
+    for n_ant in (ant_list):
+        print(f"{n_ant}")
+        cct, cgt, gct, ggt = present_nll_tests(
+                                    n_ant,
+                                    n_eig,
+                                    n_src,
+                                    n_trials=1,
+                                    return_ans=False,
+                                    print_single_check=False,
+                                    plot_truth_check=False,
+                                    plot_comparison=False,
+                                    save_fig=False,
+                                    benchmark=True,
+                                )
+        ccts.append(cct)
+        cgts.append(cgt)
+        gcts.append(gct)
+        ggts.append(ggt)
+        
+    plt.semilogx(ant_list, ccts, marker='o', linestyle='-', label = 'CPU implementation')
+    # plt.plot(ant_list, cgts, marker='o', linestyle='-', label = 'gpu with corrcal')
+    # plt.plot(ant_list, gcts, marker='o', linestyle='-', label = 'GPU Implementation')
+    plt.semilogx(ant_list, ggts, marker='o', linestyle='-', label = 'GPU Implementation')
+    plt.xlabel('Number of Antennas')
+    plt.ylabel('Average Compute Time (s)')
+    plt.legend()
+    plt.savefig('NLL_times.png', dpi = 300, format='png', bbox_inches='tight')
+    plt.show()

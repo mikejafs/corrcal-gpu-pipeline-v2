@@ -111,6 +111,9 @@ def inverse_covariance(N, Del, Sig, xp, ret_det = False, N_is_inv = True):
     Sig': The primed version of the source component matrix
     """
 
+    # eps = 1e-6
+
+
     if N_is_inv:
         N_inv = N
     else:

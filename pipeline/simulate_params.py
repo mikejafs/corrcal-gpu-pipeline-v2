@@ -27,7 +27,7 @@ class SimCorrcalParams():
         return n_bl
 
     def edges(self):
-        edges = (self.xp.unique(self.xp.random.randint(1, int(self.n_bl() / 2) - 1, size=self.n_ant)* 2))
+        edges = (self.xp.unique(self.xp.random.randint(1, int(self.n_bl() / 2) - 1, size=(self.n_ant,))* 2))
         edges = self.xp.concatenate((self.xp.array([0]), edges, self.xp.array([self.n_bl()])))
         return edges
     
