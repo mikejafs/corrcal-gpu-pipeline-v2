@@ -1,4 +1,3 @@
-#corrcal-gpu-pipeline-v2
+## Rough working pipeline that performs calibration
 
-
-Really just acts as the "good copy" location for all the rough code work.
+Only consists of the subroutines to perform minimization via NVIDIA gpus. The activate working code is located under the "pipeline" folder.
