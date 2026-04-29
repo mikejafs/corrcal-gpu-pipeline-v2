@@ -153,13 +153,13 @@ def cal_gpu_nll(
             phs_norm_fac=cp.inf
             ):
     gains = cp.array(gains)
-    noise = cp.array(noise)
-    diff_mat = cp.array(diff_mat)
-    src_mat = cp.array(src_mat)
-    edges = cp.array(edges)
-    data = cp.array(data)
-    ant_1_array = cp.array(ant_1_array)
-    ant_2_array = cp.array(ant_2_array)
+    # noise = cp.array(noise)
+    # diff_mat = cp.array(diff_mat)
+    # src_mat = cp.array(src_mat)
+    # edges = cp.array(edges)
+    # data = cp.array(data)
+    # ant_1_array = cp.array(ant_1_array)
+    # ant_2_array = cp.array(ant_2_array)
 
     nll = gpu_nll(            
             gains,
@@ -178,6 +178,8 @@ def cal_gpu_nll(
     nll = cp.asnumpy(nll)
 
     return nll
+
+np.set_printoptions(precision=50)  # Set desired precision here
 
 
 #full grad function
@@ -237,29 +239,93 @@ def gpu_grad_nll(gains,
     zp_data, _, _ = zeroPad(data, edges, return_inv=False)
     zp_cplex_gain_mat = zeropad_gains(gains, edges, ant_1_array, ant_2_array, xp = cp, return_inv=False)
 
+    # print(zp_noise_inv.dtype)
+    # print(zp_noise.dtype)
+    # print(zp_diff_mat.dtype)
+    # print(zp_src_mat.dtype)
+    # print(zp_data.dtype)
+    # print(zp_cplex_gain_mat.dtype)
+
+    # print(zp_noise[0])
+
     #apply gains to the source and diffuse matrices (ie. constructing the 'true' convariance)
     gain_diff_mat = apply_gains(zp_cplex_gain_mat, zp_diff_mat, xp=cp)
     gain_src_mat = apply_gains(zp_cplex_gain_mat, zp_src_mat, xp=cp)
 
+    # print(gain_diff_mat.dtype)
+    # print(gain_src_mat.dtype)
+
     inv_noise, inv_diff, inv_src = inverse_covariance(zp_noise_inv, gain_diff_mat, gain_src_mat, cp, ret_det=False, N_is_inv=True)
+
+    # print(inv_noise.dtype)
+    # print(inv_diff.dtype)
+    # print(inv_src.dtype)
 
     #Now compute p = C^-1 @ data => Might want to construct my own __matmul__ function for this
     p = sparse_cov_times_vec(inv_noise, inv_diff, inv_src, zp_data, isinv=True)
 
+    # print(p.dtype)
+
     #compute q = (C - N) @ G.T @ p
     q = p.copy()
+
+    # print(q[:1])  #no problem at this point
+
     q[:, ::2] = zp_cplex_gain_mat.real*p[:, ::2] + zp_cplex_gain_mat.imag*p[:, 1::2]
     q[:, 1::2] = -zp_cplex_gain_mat.imag*p[:, ::2] + zp_cplex_gain_mat.real*p[:, 1::2]
 
+    # print(q[0]) #agreement with the CPU version at this point
+
     #in computing q, we just make noise = 0 and run the C \times d function
     zp_noise = zp_noise.reshape(nb, lb, 1) #1D mats are left as 2D and not 2D + 1 col so that invcov runs so need to reshape here
-    zp_noise = cp.zeros_like(zp_noise)
+    # print(zp_noise[0]) #also full agreement at this point
+    zp_noise = cp.zeros_like(zp_noise, dtype=cp.float64)  #set noise to zero for the sparse covariance
+    # print(zp_noise.dtype)
+
+    """
+    Note that comparing inputs to sparse cov such as zp_noise, diff_mat, and src_mat
+    yields complete double precision agreement with the CPU version
+    """
+    # print(zp_diff_mat[0])
+    # print(zp_src_mat[0])
+
+    #---------------------------------------------------------------------------
+    # print(q[0]) #DOUBLE PRECISION agreement with the CPU version at this point 
+    # print(f"GPU before sparse cov times vec {q[0,:5]}")
+
+    # Before sparse_cov_times_vec in gpu_grad_nll
+    # print("GPU noise[:5]:", cp.asnumpy(noise[:5]))
+    # print("GPU diff_mat[:5,:5]:", cp.asnumpy(diff_mat[:5,:5]))
+    # print("GPU src_mat[:5,:5]:", cp.asnumpy(src_mat[:5,:5]))
+    # print("GPU edges:", cp.asnumpy(edges))
+    # print("GPU q[:5]:", cp.asnumpy(q[:5]))
+    # print("GPU q dtype:", q.dtype)
+
+    # print("GPU zp_noise shape:", zp_noise.shape)
+    # print("GPU zp_diff_mat shape:", zp_diff_mat.shape)
+    # print("GPU zp_src_mat shape:", zp_src_mat.shape)
+    # print("GPU q shape:", q.shape)
+
     q = sparse_cov_times_vec(zp_noise, zp_diff_mat, zp_src_mat, q, isinv=False)
+
+    # print(f"GPU after sparse cov times vec {q[0,:5]}")
+
+    # print(q[0]) #SINGLE PRECISION agreement with the CPU version at this point 
+
+    """
+    PROBLEM AT Q AND NOT P SO SOMETHING IS GOING WRONG AT THIS POINT
+    """
+    #-----------------------------------------------------------------------------
+
+    
+    # print(zp_noise.dtype)
 
     #compute s and t => Note this bring the shape of s & t to 1/2len(p or q)
     zp_s = p[:, ::2]*q[: ,::2] + p[:, 1::2]*q[:, 1::2]
     zp_t = p[:, 1::2]*q[:, ::2] - p[:, ::2]*q[:, 1::2]
     
+    # print(zp_t[:1])
+
     #compute the inverse power
     inv_power = cp.sum(
         inv_diff[:, ::2]**2 + inv_diff[:, 1::2]**2, axis=2
@@ -276,15 +342,15 @@ def gpu_grad_nll(gains,
     s = undo_zeroPad(zp_s, edges, ReImsplit=False)
     t = undo_zeroPad(zp_t, edges, ReImsplit=False)
     P = undo_zeroPad(inv_power, edges, ReImsplit=False)
+    # print(t[:5])
 
-    # print(f" gpu s shape: {s.shape}")
-    # print(f" gpu s dtype: {s.dtype}")
-    # print(t.shape)
-    # print(P.shape)
+    np.set_printoptions(precision=50)  # Set desired precision here
+    # print(f"gpu \n {s[:5]}")
+    # print(f"gpu dtype {zp_s.dtype}")
+    # print(f"gpu shape {zp_s.shape}")
+    # print(f"{inv_power[:1]}")
 
-    # print(f"gpu s elements: \n {t[:10]}")
-    
-    # return s, t, P
+    # return zp_s
 
     #fill out the dLdG gradient (n_ant x n_ant) matrix
     gradr, gradi = populate_gradient(
@@ -334,13 +400,13 @@ def cal_gpu_grad_nll(
             ):
     
     gains = cp.array(gains)
-    noise = cp.array(noise)
-    diff_mat = cp.array(diff_mat)
-    src_mat = cp.array(src_mat)
-    edges = cp.array(edges)
-    data = cp.array(data)
-    ant_1_array = cp.array(ant_1_array)
-    ant_2_array = cp.array(ant_2_array)
+    # noise = cp.array(noise)
+    # diff_mat = cp.array(diff_mat)
+    # src_mat = cp.array(src_mat)
+    # edges = cp.array(edges)
+    # data = cp.array(data)
+    # ant_1_array = cp.array(ant_1_array)
+    # ant_2_array = cp.array(ant_2_array)
 
     grad_nll = gpu_grad_nll(            
             gains,

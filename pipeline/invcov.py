@@ -18,6 +18,8 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import corrcal
 from cupyx.profiler import benchmark
+import cupyx.scipy.linalg as cpx_linalg
+
 
 def zeropad(array, edges, xp):
     """
@@ -135,15 +137,7 @@ def inverse_covariance(N, Del, Sig, xp, ret_det = False, N_is_inv = True):
         )
     )
     Sig_prime = W @ xp.linalg.inv(L_sig).T.conj()[None, ...]
-
-    #TODO: TRYING TO GET DET PART OF CODE TO WORK... Current problems
-    # - problems referencing logdet before assignment (prob just need to restart
-    # VScode or something)
-    # - L_del and L_sig (apparently) aren't 1- or 2-D.. Need to look into this
-    #UPDATE: The problem is that they are 3-d (ie. still in 'block' form)
-    #need to figure out the best way to sum all the diags given this is the case
-    # print(L_del.shape)
-    # print(L_sig.shape)
+    # Sig_prime = (A - Del_prime @ xp.transpose(B.conj(), [0, 2, 1])) @ xp.linalg.inv(L_sig).T.conj()[None, ...]
 
     #NOTE: Removed the 2 that I was multiplying the det expression by, since I also forgot about the squareroot,
     #meaning taking the log should means that we can factor out the 1/2 when saying the likelihood is proportional 
@@ -159,6 +153,23 @@ def inverse_covariance(N, Del, Sig, xp, ret_det = False, N_is_inv = True):
         pass
     # cp.cuda.Stream.null.synchronize()
     return N_inv, Del_prime, Sig_prime
+
+
+
+#-----------------------------------------------------------------------
+#-----------------------------------------------------------------------
+#-----------------------------------------------------------------------
+#-----------------------------------------------------------------------
+
+
+"""Space for testing a new function... it didn't work though :(   """
+
+
+#-----------------------------------------------------------------------
+#-----------------------------------------------------------------------
+#-----------------------------------------------------------------------
+#-----------------------------------------------------------------------
+
 
 
 def sparden_convert(Array, largest_block, n_blocks, n_bl, n_eig, edges, xp, zeroPad=True):

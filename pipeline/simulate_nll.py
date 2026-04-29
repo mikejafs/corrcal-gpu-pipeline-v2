@@ -14,6 +14,7 @@ from fancy_plotting import *
 
 def simulate_nll(n_ant, n_eig, n_src, return_ans, return_benchmark):
 
+    cp.random.seed(10)
     spms = SimCorrcalParams(n_ant, n_eig, n_src, xp=cp)
     ant_1_array, ant_2_array = spms.ant_arrays()
     # n_bl = spms.n_bl()
@@ -168,6 +169,8 @@ if __name__ == "__main__":
     # )
 
     ant_list = np.array([2**2, 2**3, 2**4, 2**5, 2**6, 2**7, 2**8, 2**9, 2**10])
+    # ant_list = np.array([2**5, 2**6, 2**7, 2**8, 2**9, 2**10, 2**11])
+
     # ant_list = np.array([2**4])
 
     ccts = []
@@ -193,12 +196,13 @@ if __name__ == "__main__":
         gcts.append(gct)
         ggts.append(ggt)
         
-    plt.semilogx(ant_list, ccts, marker='o', linestyle='-', label = 'CPU implementation')
+    plt.loglog(ant_list, ccts, marker='o', linestyle='-', label = 'CPU Implementation')
     # plt.plot(ant_list, cgts, marker='o', linestyle='-', label = 'gpu with corrcal')
     # plt.plot(ant_list, gcts, marker='o', linestyle='-', label = 'GPU Implementation')
-    plt.semilogx(ant_list, ggts, marker='o', linestyle='-', label = 'GPU Implementation')
+    plt.loglog(ant_list, ggts, marker='o', linestyle='-', label = 'GPU Implementation')
     plt.xlabel('Number of Antennas')
     plt.ylabel('Average Compute Time (s)')
+    plt.title("Negative Log-likelihood (NLL)")
     plt.legend()
     plt.savefig('NLL_times.png', dpi = 300, format='png', bbox_inches='tight')
     plt.show()

@@ -12,14 +12,14 @@ def fancy_plotting(use_tex):
 
             # Figure and font sizes
             'font.size': 18,             # Base font size
-            'axes.labelsize': 13,        # Axis labels
-            'axes.titlesize': 15,        # Axes titles
-            'xtick.labelsize': 18,       # X tick labels
-            'ytick.labelsize': 18,       # Y tick labels
-            'legend.fontsize': 18,       # Legend text size
+            'axes.labelsize': 15,        # Axis labels
+            'axes.titlesize': 16,        # Axes titles
+            'xtick.labelsize': 15,       # X tick labels
+            'ytick.labelsize': 15,       # Y tick labels
+            'legend.fontsize': 13,       # Legend text size
 
             # Figure properties
-            'figure.figsize': [6.4, 4.8],  # Default figure size in inches
+            'figure.figsize': [6, 5],  # Default figure size in inches
             'figure.dpi': 100,             # Default figure resolution
 
             # Save figures with high resolution

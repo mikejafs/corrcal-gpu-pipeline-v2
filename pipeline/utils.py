@@ -7,10 +7,12 @@ from cupyx.profiler import benchmark
 def sparse_cov_times_vec(N, Del, Sig, vec, isinv):
     """
     Multiplies a sparse covariance object by a vector from the right
-
-    #TODO: Could be beneficial to separate this function (for the sake of too many arguments)
-        into one function for cov_times_data and inv_cov_times_data
     """
+    # print(N.dtype)
+    # print(Del.dtype)
+    # print(Sig.dtype)
+    # print(vec.dtype)
+
     if vec.ndim == 2:
         vec = vec.reshape(vec.shape[0], vec.shape[1], 1)
         N = N.reshape(vec.shape[0], vec.shape[1], 1)

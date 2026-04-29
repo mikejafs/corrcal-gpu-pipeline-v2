@@ -1,0 +1,6 @@
+Mostly ai generated code tyring to get the 
+invcov routine to run faster. Pretty much nothing
+worked, but was still useful to see what sorts
+of things could be worth considering. Such
+as, adopting fused routines using literally
+what we're trying to do next with cublas etc.

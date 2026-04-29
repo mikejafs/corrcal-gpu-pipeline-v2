@@ -40,7 +40,6 @@ def simulate(n_ant, rand_seed, return_benchmark=True ):
     edges = xp.concatenate((xp.array([0]), edges, xp.array([n_bl])))
     # print(f"The edges of the redundant blocks have indices{edges}")
 
-
     #Constructing matrices for simulation using simulation params
     #& running grad_nll for cpu and gpu
     #------------------------------------------------------------
@@ -53,15 +52,31 @@ def simulate(n_ant, rand_seed, return_benchmark=True ):
     sim_gains = xp.random.rand(n_gains, dtype='float64')  # Re/Im split + ant1 & ant 2 = 4*n_ant
     sim_data = xp.random.rand(n_bl, dtype='float64')
 
+
+    #------------------------------------------------------------
+    #GENERATE TRUNCATING MATRICES FOR TESTING NUMERICAL NOISE
+    n_grps = edges.size - 1
+    new_n_grps = n_grps // 2
+    new_edges = edges[:new_n_grps+1]
+    new_n_bl = new_edges[-1]
+    new_noise = sim_noise_mat[:new_n_bl]
+    new_diff_mat = sim_diff_mat[:new_n_bl]
+    new_src_mat = sim_src_mat[:new_n_bl]
+    new_data = sim_data[:new_n_bl]
+    new_ant_1_array = ant_1_array[:new_n_bl//2]
+    new_ant_2_array = ant_2_array[:new_n_bl//2]
+    #--------------------------------------------------------------
+
     #run gpu version of grad_nll
-    # gpu_grad = gpu_grad_nll(sim_gains, sim_noise_mat, sim_diff_mat, sim_src_mat, edges, sim_data, n_ant, ant_1_array, ant_2_array, 1, np.inf)
-    
+    gpu_grad = gpu_grad_nll(sim_gains, sim_noise_mat, sim_diff_mat, sim_src_mat, edges, sim_data, n_ant, ant_1_array, ant_2_array, 1, np.inf)
+    # gpu_grad = gpu_grad_nll(sim_gains, new_noise, new_diff_mat, new_src_mat, new_edges, new_data, n_ant, new_ant_1_array, new_ant_2_array, 1, np.inf)
+
 
 
     #----------------------------------------------------
     #TESTING GPU GRAD HERE -> comment out full grad return above
     # gpu_s, gpu_t, gpu_P = gpu_grad_nll(sim_gains, sim_noise_mat, sim_diff_mat, sim_src_mat, edges, sim_data, n_ant, ant_1_array, ant_2_array, 1, np.inf)    
-    gpu_gradient = gpu_grad_nll(sim_gains, sim_noise_mat, sim_diff_mat, sim_src_mat, edges, sim_data, n_ant, ant_1_array, ant_2_array, 1, np.inf)    
+    # gpu_gradient = gpu_grad_nll(sim_gains, sim_noise_mat, sim_diff_mat, sim_src_mat, edges, sim_data, n_ant, ant_1_array, ant_2_array, 1, np.inf)    
     #----------------------------------------------------
 
 
@@ -77,7 +92,7 @@ def simulate(n_ant, rand_seed, return_benchmark=True ):
 
 
     """ RUNNING WITH CORRCAL """
-    #Convert everything to Numpy arrays first
+    # #Convert everything to Numpy arrays first
     noise_mat = cp.asnumpy(sim_noise_mat)
     src_mat = cp.asnumpy(sim_src_mat)
     diff_mat = cp.asnumpy(sim_diff_mat)
@@ -87,16 +102,30 @@ def simulate(n_ant, rand_seed, return_benchmark=True ):
     ant_1_data = cp.asnumpy(ant_1_array)
     ant_2_data = cp.asnumpy(ant_2_array)
 
+    new_noise = cp.asnumpy(new_noise)
+    new_src_mat = cp.asnumpy(new_src_mat)
+    new_diff_mat = cp.asnumpy(new_diff_mat)
+    new_edges = cp.asnumpy(new_edges)
+    gains_mat = cp.asnumpy(sim_gains)
+    new_data = cp.asnumpy(new_data)
+    new_ant_1_array = cp.asnumpy(new_ant_1_array)
+    new_ant_2_array = cp.asnumpy(new_ant_2_array)
+
+    # print(diff_mat.dtype)
+
     # #use simulated params to create sparse cov object and feed to cpu grad_nll
     cov = SparseCov(noise_mat, src_mat, diff_mat, edges_mat, n_eig, isinv=False)
-    # cpu_grad = grad_nll(gains_mat, cov, data_vec, ant_1_data, ant_2_data, scale=1, phs_norm_fac=np.inf)
+    cpu_grad = grad_nll(gains_mat, cov, data_vec, ant_1_data, ant_2_data, scale=1, phs_norm_fac=np.inf)
 
 
+    # cov = SparseCov(new_noise, new_src_mat, new_diff_mat, new_edges, n_eig, isinv=False)
+    # cpu_grad = grad_nll(gains_mat, cov, new_data, new_ant_1_array, new_ant_2_array, scale=1, phs_norm_fac=np.inf)
+    # print(cpu_grad[-10:])
 
     #----------------------------------------------------
     #TESTING CPU GRAD HERE -> comment out full grad return above
     # cpu_s, cpu_t, cpu_P = grad_nll(gains_mat, cov, data_vec, ant_1_data, ant_2_data, scale=1, phs_norm_fac=np.inf)
-    cpu_gradient = grad_nll(gains_mat, cov, data_vec, ant_1_data, ant_2_data, scale=1, phs_norm_fac=np.inf)
+    # cpu_gradient = grad_nll(gains_mat, cov, data_vec, ant_1_data, ant_2_data, scale=1, phs_norm_fac=np.inf)
     #----------------------------------------------------
     
 
@@ -109,10 +138,12 @@ def simulate(n_ant, rand_seed, return_benchmark=True ):
 
     """ COMPARING OUTPUTS BTWN CPU AND GPU """
     #send gpu stuff to cpu for comparison
-    # gpu_grad_np = cp.asnumpy(gpu_grad)
+    gpu_grad_np = cp.asnumpy(gpu_grad)
+    # print(gpu_grad_np[-10:])
+
 
     #variable storing whether cpu grad_nll matches gpu grad_nll
-    # truth_check =  np.allclose(gpu_grad_np, cpu_grad)
+    # truth_check =  np.allclose(gpu_grad_np, cpu_grad, atol = 1e-8)
 
     #----------------------------------
     #TESTING TRUTH BTWN CPU AND GPU HERE -> comment out full truth check above
@@ -120,20 +151,26 @@ def simulate(n_ant, rand_seed, return_benchmark=True ):
     # gpu_t = cp.asnumpy(gpu_t)
     # gpu_P = cp.asnumpy(gpu_P)
 
-    gpu_gradient = cp.asnumpy(gpu_gradient)
+    # gpu_gradient = cp.asnumpy(gpu_gradient)
+    np.set_printoptions(precision=50)  # Set desired precision here
 
+    # print(cpu_grad[:5].reshape(5))
+    # print(gpu_grad_np[:5].reshape(5))
     atol, rtol = 1e-7, 1e-5
-    truth_check = np.allclose(cpu_gradient, gpu_gradient, atol = atol, rtol = rtol)
-    return truth_check, atol, rtol
+    # truth_check = np.allclose(cpu_grad, gpu_grad_np, atol = atol, rtol = rtol)
+    # return truth_check, atol, rtol
+    
     #----------------------------------
 
 
     if return_benchmark:
         return cpu_cpu_t, cpu_gpu_t, gpu_cpu_t, gpu_gpu_t
 
-    return gpu_grad_np - cpu_grad, cpu_grad, truth_check
+    # print(f"cpu grad \n {cpu_grad}")
+    # print(f"gpu grad \n {gpu_grad_np}")
+    # return gpu_grad_np - cpu_grad, cpu_grad, truth_check
 
-    # return gradr, gradi
+
 
 fancy_plotting(use_tex=True)
 def present_grad_nll_tests(
@@ -211,14 +248,17 @@ def present_grad_nll_tests(
         # plt.show()
 
     if print_single_check:
-        result, cpu_grad, truth = simulate(n_ant = n_ant, return_benchmark=benchmark)
-        print(truth)
+        # result, cpu_grad, truth = simulate(n_ant = n_ant, rand_seed=rand_seed, return_benchmark=benchmark)
+        # print(truth)
+
+        simulate(n_ant = n_ant, rand_seed=rand_seed, return_benchmark=benchmark)
+
 
     if benchmark:
-        c_cpu_times, c_gpu_times, g_cpu_times, g_gpu_times = simulate(n_ant = n_ant, rand_seed=None, return_benchmark=benchmark)
-        # print(f"\n cpu times: \n \n {cpu_times} \n \n \n" 
-        #       f"gpu times: \n \n {gpu_times} \n"
-        #       )
+        c_cpu_times, c_gpu_times, g_cpu_times, g_gpu_times = simulate(n_ant = n_ant, rand_seed=rand_seed, return_benchmark=benchmark)
+        print(f"\n cpu times: \n \n {c_cpu_times} \n \n \n" 
+              f"gpu times: \n \n {g_gpu_times} \n"
+              )
         return c_cpu_times, c_gpu_times, g_cpu_times, g_gpu_times 
 
 
@@ -244,25 +284,28 @@ def present_grad_nll_tests(
         if save_fig:
             plt.savefig('tests/debugging_tests/grad_nll_truth nant={}, r_seed={}, atol={}, rtol={}.png'.format(n_ant, rand_seed, atol, rtol), dpi=300, format='png', bbox_inches='tight')
         # plt.show()
-        plt.show(block=False)   # display the figure without blocking (doesn't block the rest of script if False)
-        plt.pause(3)            # wait 5 seconds (updates the GUI event loop)
+        plt.show(block=True)   # display the figure without blocking (doesn't block the rest of script if False)
+        plt.pause(5)            # wait 5 seconds (updates the GUI event loop)
         plt.close()  
 
 
     if plot_comparison:
-        plt.figure(figsize=(18,16))
+        plt.figure(figsize=(18,10))
         for i in range(n_trials):
             print(f"on trial {i}")
             #return the full set of parameters needed for this section;
             #cpu_grad is used only if want relative comparison
-            result, cpu_grad, truth = simulate(n_ant = n_ant, return_benchmark=benchmark)
-            plt.plot(result, marker='.', lw=0, ms=1)
-            plt.title(f"Number of realizations = {n_trials}", fontsize=18)
-            plt.xlabel("Number of Antennas (Re Im Split)", fontsize=17)
-            plt.ylabel(r"$\nabla log\mathcal{L}_{gpu} - \nabla log\mathcal{L}_{cpu}$", fontsize=17)
+            result, cpu_grad, truth = simulate(n_ant = n_ant, rand_seed=rand_seed, return_benchmark=benchmark)
+            plt.plot(result, marker='.', lw=0, ms=5)
+            plt.title(f"Number of realizations = {n_trials}", fontsize=26)
+            plt.xlabel("Number of Antennas (Re Im Split)", fontsize=25)
+            plt.ylabel(r"$\nabla (-log\mathcal{L}_{gpu}) - \nabla (-log\mathcal{L}_{cpu})$", fontsize=25)
         if save_fig:
-            plt.savefig('comparison_plots/grad_nll_difference_nant={}.png'.format(n_ant), dpi=300, format='png', bbox_inches='tight')
-        plt.show()
+            plt.savefig('tests/debugging_tests/grad_nll_difference_nant={}.png'.format(n_ant), dpi=300, format='png', bbox_inches='tight')
+        # plt.show()
+        plt.show(block=False)   # display the figure without blocking (doesn't block the rest of script if False)
+        plt.pause(5)            # wait 5 seconds (updates the GUI event loop)
+        plt.close()
 
 
 if __name__ == "__main__":
@@ -274,23 +317,31 @@ if __name__ == "__main__":
     for random seed 50:
     -> at n_ant = 800, needs rtol = 0 and atol = 1e-3 for allclose to return True
     """
-    random_seed = 24
+    # random_seed = 24
     # random_seed = 50
+    random_seed = 10
+    #-----------------------------------
+    #For running main tests
+    #-----------------------------------
 
-    full_bool_list = []
-    for i in range(1):
-        print(f"on seed {random_seed}")
-        bool_list = present_grad_nll_tests(
-            n_ant = 800,
-            n_trials=1000,
-            rand_seed=random_seed,
-            print_single_check=False,
-            plot_truth_check=True,
-            plot_comparison=False,
-            save_fig=True,
-            benchmark=False,
-            debug_grad=False
-        )
+    # full_bool_list = []
+    # for i in range(1):
+    #     # print(f"on seed {random_seed}")
+    #     bool_list = present_grad_nll_tests(
+    #         n_ant = 2000,
+    #         n_trials=1, 
+    #         rand_seed=random_seed,
+    #         print_single_check=True,
+    #         plot_truth_check=False,
+    #         plot_comparison=False,
+    #         save_fig=False,
+    #         benchmark=False,
+    #         debug_grad=False
+    #     )
+
+    #----------------------------------------------------------
+    #Used to test ~1000 trials of the above code for debugging
+    #----------------------------------------------------------
 
         # full_bool_list.append(bool_list)
     # print(full_bool_list)
@@ -312,39 +363,42 @@ if __name__ == "__main__":
     #Useful for plotting speed comparisons
     #-------------------------------------
 
-    # ant_list = np.array([2**2, 2**3, 2**4, 2**5, 2**6, 2**7, 2**8, 2**9, 2**10])
-    # # ant_list = np.array([2**4])
+    ant_list = np.array([2**2, 2**3, 2**4, 2**5, 2**6, 2**7, 2**8, 2**9, 2**10])
+    # ant_list = np.array([2**5, 2**6, 2**7, 2**8])
 
-    # ccts = []
-    # cgts = []
-    # gcts = []
-    # ggts = []
-    # for n_ant in (ant_list):
-    #     print(f"{n_ant}")
-    #     cct, cgt, gct, ggt = present_grad_nll_tests(
-    #                                 n_ant,
-    #                                 n_trials=1,
-    #                                 rand_seed=None,
-    #                                 print_single_check=False,
-    #                                 plot_truth_check=False,
-    #                                 plot_comparison=False,
-    #                                 save_fig=False,
-    #                                 benchmark=True,
-    #                                 debug_grad=False
-    #                             )
-    #     ccts.append(cct)
-    #     cgts.append(cgt)
-    #     gcts.append(gct)
-    #     ggts.append(ggt)
+    # ant_list = np.array([2**4])
+
+    ccts = []
+    cgts = []
+    gcts = []
+    ggts = []
+    for n_ant in (ant_list):
+        print(f"{n_ant}")
+        cct, cgt, gct, ggt = present_grad_nll_tests(
+                                    n_ant,
+                                    n_trials=1,
+                                    rand_seed=10,
+                                    print_single_check=False,
+                                    plot_truth_check=False,
+                                    plot_comparison=False,
+                                    save_fig=False,
+                                    benchmark=True,
+                                    debug_grad=False
+                                )
+        ccts.append(cct)
+        cgts.append(cgt)
+        gcts.append(gct)
+        ggts.append(ggt)
         
-    # plt.semilogx(ant_list, ccts, marker='o', linestyle='-', label = 'CPU implementation')
-    # # plt.plot(ant_list, cgts, marker='o', linestyle='-', label = 'gpu with corrcal')
-    # # plt.plot(ant_list, gcts, marker='o', linestyle='-', label = 'GPU Implementation')
-    # plt.semilogx(ant_list, ggts, marker='o', linestyle='-', label = 'GPU Implementation')
-    # plt.xlabel('Number of Antennas')
-    # plt.ylabel('Average Compute Time (s)')
-    # plt.legend()
-    # plt.savefig('grad_NLL_times.png', dpi = 300, format='png', bbox_inches='tight')
-    # plt.show()
+    plt.loglog(ant_list, ccts, marker='o', linestyle='-', label = 'CPU Implementation')
+    # plt.semilogx(ant_list, cgts, marker='o', linestyle='-', label = 'gpu with corrcal')
+    # plt.semilogx(ant_list, gcts, marker='o', linestyle='-', label = 'GPU Implementation')
+    plt.loglog(ant_list, ggts, marker='o', linestyle='-', label = 'GPU Implementation')
+    plt.xlabel('Number of Antennas')
+    plt.ylabel('Average Compute Time (s)')
+    plt.title("Gradient of NLL")
+    plt.legend()
+    plt.savefig('grad_NLL_times_exploding.png', dpi = 300, format='png', bbox_inches='tight')
+    plt.show()
 
 
